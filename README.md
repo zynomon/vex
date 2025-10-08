@@ -6,12 +6,7 @@
 <img width="1000" height="726" alt="VirtualBoxVM_sY9EEQPrjo" src="https://github.com/user-attachments/assets/eafdde0c-73de-45f0-b358-c43cbff2b6b2" />
 <img width="899" height="450" alt="VirtualBoxVM_NgJr9AUcur" src="https://github.com/user-attachments/assets/76095a1f-df6e-4974-a3ca-f8b5f8f08019" />
 <img width="1077" height="541" alt="VirtualBoxVM_SH2SPhDUK5" src="https://github.com/user-attachments/assets/c7ba566c-8321-42cb-9b5b-2a22ddd4d01a" />
-Got it—dropping “cinematic” and keeping it grounded and developer-friendly. Here's your updated `README.md`, now fully aligned with the actual features in your Qt source and plugin architecture:
-
----
-
-```markdown
-# Vex
+# vex
 
 **Vex is a fast, Vim-inspired text editor built with Qt—designed for developers who want control, clarity, and extensibility.**  
 Tabbed editing, syntax highlighting, plugin support, and theme customization come built-in.
