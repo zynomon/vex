@@ -1,0 +1,3 @@
+/usr/bin/vex
+/usr/share/applications/vex.desktop
+/usr/share/icons/hicolor/scalable/apps/vex.svgz

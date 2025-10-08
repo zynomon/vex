@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Version=@PROJECT_VERSION@
+Name=Vex
+Name[bn]=ভেক্স
+GenericName=Text Editor
+GenericName[bn]=টেক্সট এডিটর
+Comment=Vex, a lightweight, fast text editor
+Comment[bn]=ভেক্স — মডুলার, দ্রুত টেক্সট এডিটর
+Exec=@EXECUTABLE_NAME@ %F
+Icon=vex
+Terminal=false
+StartupNotify=true
+StartupWMClass=vex
+Categories=Development;TextEditor;Qt;
+MimeType=text/plain;text/markdown;text/x-c++;text/x-csrc;text/x-chdr;text/x-python;text/x-shellscript;text/x-java;text/x-pascal;text/x-rust;text/x-go;text/x-csharp;text/x-php;text/x-perl;text/x-tcl;text/x-lua;text/x-yaml;text/x-json;text/x-tex;text/x-makefile;text/x-cmake;text/x-log;text/x-readme;text/x-copying;text/x-install;text/x-config;text/x-properties;text/x-po;text/x-sql;
+Keywords=editor;text;code;vex;modular;qt;syntax;lightweight;error.os;
+Keywords[bn]=এডিটর;টেক্সট;কোড;ভেক্স;মডুলার;কিউটি;সিনট্যাক্স;হালকা;এরর.ওএস;
