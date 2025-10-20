@@ -22,9 +22,6 @@
 
 ---
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/ff3216c1-7818-4b69-aab9-f170261a632a" alt="Vex demo GIF" width="70%" />
-</p>
 
 ## 📦 Installation Guide
 
@@ -60,6 +57,9 @@ make -j$(nproc)
 ---
 
 ## ✨ Features
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ff3216c1-7818-4b69-aab9-f170261a632a" alt="Vex demo GIF" width="70%" />
+</p>
 
 - 🧙‍♂️ **Vim Mode** – Modal editing with familiar keybindings (`hjkl`, `x`, `dd`, `:`)
 - 🗂️ **Tabbed Interface** – Closable, movable tabs for multitasking
