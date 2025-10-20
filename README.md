@@ -23,7 +23,7 @@
 ---
 
 <p align="center">
-  <img src="https://github.com/zynomon/vex/raw/main/build/vex-demo.gif" alt="Vex demo GIF" width="70%" />
+  <img src="https://github.com/user-attachments/assets/ff3216c1-7818-4b69-aab9-f170261a632a" alt="Vex demo GIF" width="70%" />
 </p>
 
 ## 📦 Installation Guide
