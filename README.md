@@ -44,7 +44,7 @@ cmake ..
 make -j$(nproc)
 ./vex
 ```
-
+coming soon..  RPM and dedicated debian repositories
 ### 🔧 Requirements
 
 - 🧰 **Qt** 5.15+ or Qt 6
