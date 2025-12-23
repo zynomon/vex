@@ -1,9 +1,7 @@
-Based on your project and files, here’s a **clean, professional README.md** you can use for your Vex editor repository:
+![vex](https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14
+#  Vex — A Lightweight Vim-Inspired Text Editor
 
----
-
-# Vex — A Lightweight Vim-Inspired Text Editor
-
+<img width="1004" height="724" alt="image" src="https://github.com/user-attachments/assets/2e148473-2804-4138-83b9-6658451d1365" />
 ![Vex Screenshot](https://github.com/user-attachments/assets/ff3216c1-7818-4b69-aab9-f170261a632a)
 
 **Vex** is a fast, m text editor built with Qt and inspired by Vim keybindings. Designed for developers who want speed without clutter, 
@@ -31,7 +29,6 @@ and more—all while staying lightweight. basically less line more work just how
 <img width="996" height="757" alt="image" src="https://github.com/user-attachments/assets/386f856f-bf6d-4e57-b9b0-6e9aa775445e" />
 <img width="347" height="288" alt="image" src="https://github.com/user-attachments/assets/09006432-79bc-4428-8115-289427bad917" />
 <img width="743" height="578" alt="image" src="https://github.com/user-attachments/assets/d564e3bc-e740-49a4-96f0-460919208ebc" />
-<img width="1004" height="724" alt="image" src="https://github.com/user-attachments/assets/2e148473-2804-4138-83b9-6658451d1365" />
 ( the white line below applycation is provided by open box so not get confused ) 
 ---
 
