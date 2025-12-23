@@ -29,7 +29,10 @@ and more—all while staying lightweight. basically less line more work just how
 <img width="996" height="757" alt="image" src="https://github.com/user-attachments/assets/386f856f-bf6d-4e57-b9b0-6e9aa775445e" />
 <img width="347" height="288" alt="image" src="https://github.com/user-attachments/assets/09006432-79bc-4428-8115-289427bad917" />
 <img width="743" height="578" alt="image" src="https://github.com/user-attachments/assets/d564e3bc-e740-49a4-96f0-460919208ebc" />
-( the white line below applycation is provided by open box so not get confused ) 
+
+
+
+( the white line below application is provided by open box windowmanager so not get confused ) 
 ---
 
 ## 📦 Building Mint Leaf 3.0
