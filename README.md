@@ -1,260 +1,129 @@
-
-
-\# ⚡ Vex
-
-
-
-<div align="center">
-
-&nbsp; <img src="https://github.com/user-attachments/assets/ff3216c1-7818-4b69-aab9-f170261a632a" alt="Vex Screenshot 1" width="40%" />
-
-&nbsp; <img src="https://github.com/user-attachments/assets/54a4b958-a9d4-454d-93bd-76bd14edd845" alt="Vex Screenshot 2" width="30%" />
-
-&nbsp; <img src="https://github.com/user-attachments/assets/c7986877-23f4-4f09-a67c-780a080e4171" alt="Vex Screenshot 3" width="35%" />
-
-&nbsp; <img src="https://github.com/user-attachments/assets/cf94841e-2771-4227-ac24-e93f4b9778d9" alt="Vex Screenshot 4" width="35%" />
-
-&nbsp; <img src="https://github.com/user-attachments/assets/eafdde0c-73de-45f0-b358-c43cbff2b6b2" alt="Vex Screenshot 5" width="35%" />
-
-&nbsp; <img src="https://github.com/user-attachments/assets/76095a1f-df6e-4974-a3ca-f8b5f8f08019" alt="Vex Screenshot 6" width="31%" />
-
-&nbsp; <img src="https://github.com/user-attachments/assets/c7ba566c-8321-42cb-9b5b-2a22ddd4d01a" alt="Vex Screenshot 7" width="32%" />
-
-</div>
-
-
-
-<div align="center">
-
-&nbsp; <strong>Vex is a fast, Vim-inspired text editor built with Qt — designed for developers who crave control, clarity, and modular extensibility.</strong>
-
-&nbsp; <br>
-
-&nbsp; <sub>Tabbed editing, syntax highlighting, plugin support, theme customization, and more — all built-in.</sub>
-
-&nbsp; <br><br>
-
-&nbsp; <img src="https://img.shields.io/github/license/zynomon/vex?style=flat-square" alt="License" />
-
-&nbsp; <img src="https://img.shields.io/badge/build-stable-brightgreen?style=flat-square" alt="Build Status" />
-
-&nbsp; <img src="https://img.shields.io/badge/platform-Linux-blue?style=flat-square" alt="Platform" />
-
-</div>
-
-
+Based on your project and files, here’s a **clean, professional README.md** you can use for your Vex editor repository:
 
 ---
 
+# Vex — A Lightweight Vim-Inspired Text Editor
 
+![Vex Screenshot](https://github.com/user-attachments/assets/ff3216c1-7818-4b69-aab9-f170261a632a)
+<img width="554" height="596" alt="image" src="https://github.com/user-attachments/assets/95a50bfd-e2e2-4bdc-a72c-bb0e6b8bf8a8" />
 
-<p align="center">
+**Vex** is a fast, m text editor built with Qt and inspired by Vim keybindings. Designed for developers who want speed without clutter, 
+![Beta](https://img.shields.io/badge/Beta-yellow?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBkPSJNOCAxLjVDMTMuNTIgMS41IDE4IDUuOTggMTggMTEuNSAxOCAxNy4wMiAxMy41MiAyMS41IDggMjEuNSAyLjQ4IDIxLjUgLTIgMTcuMDIgLTIgMTEuNSAtMiA1Ljk4IDIuNDggMS41IDggMS41em0wIDEuNEM0LjIzIDIuOSAwIDYuMjMgMCAxMC41YzAgNC4yNyA0LjIzIDcuNiA4IDcuNiA0Ljc3IDAgOCAzLjMzIDggNy42IDAgLTQuMjcgLTMuMjMtNy42IC04LTcuNnoiLz48L3N2Zz4%3D)Vex supports syntax highlighting ( custom in DSL ) ,
+Vi mode,
+theming,
+plugins,
+and more—all while staying lightweight. basically less line more work just how a string can express many thing but not the word string can 
 
-&nbsp; <img src="https://github.com/zynomon/vex/raw/main/build/vex-demo.gif" alt="Vex demo GIF" width="70%" />
+---
 
-</p>
+## ✨ Features
 
+- **Vim-style navigation & editing** (`h/j/k/l`, `i/a`, `o`, `dd`, `yy`, etc.)
+- **Syntax highlighting** via custom `.vex` rules system
+- **Drag-and-drop file support**
+- **Admin-mode editing** for system files (using `sudo` + terminal)
+- **Find & Replace** with regex-like options
+- **Custom themes** (QSS-based) with live preview
+- **Plugin system** (via `.so` Qt plugins)
+- **File watcher** for external changes
+- **Multi-tab interface** with unsaved-modified indicators
+- **Recent files menu** & **path-based file opener**
+- **Binary detection** to avoid corrupting non-text files
+<img width="996" height="757" alt="image" src="https://github.com/user-attachments/assets/386f856f-bf6d-4e57-b9b0-6e9aa775445e" />
+<img width="347" height="288" alt="image" src="https://github.com/user-attachments/assets/09006432-79bc-4428-8115-289427bad917" />
+<img width="743" height="578" alt="image" src="https://github.com/user-attachments/assets/d564e3bc-e740-49a4-96f0-460919208ebc" />
+<img width="1004" height="724" alt="image" src="https://github.com/user-attachments/assets/2e148473-2804-4138-83b9-6658451d1365" />
+( the white line below applycation is provided by open box so not get confused ) 
+---
 
+## 📦 Building Mint Leaf 3.0
 
-\## 📦 Installation Guide
-
-
-
-\### 🗃️ Debian Stable (.deb)
-
-
-
-Install Vex using the prebuilt `.deb` package:
-
+Vex is built with C++ and Qt 6. To install from source:
 
 
 ```bash
-
-wget https://github.com/zynomon/vex/raw/main/build/vex-1.0.0-Linux.deb
-
-sudo apt install ./vex-1.0.0-Linux.deb
-
-```
-
-
-
-\### 👷 Build from Source
-
-
-
-```bash
-
 git clone https://github.com/zynomon/vex.git
-
 cd vex
-
-mkdir build \&\& cd build
-
-cmake ..
-
+qmake vex.pro
 make -j$(nproc)
+sudo make install  # optional
+```
+Make sure to have Qtcore and Qtwidgets if no cmake would fail be careful,
 
-./vex
+Install using terminal in DEBIAN?/UBUNTU based linux distro
+copy our   own repository ( gpg signed )
+well by our I'm confused it's only me haha
 
+---
+
+## 🚀 Usage
+
+Launch Vex from terminal:
+
+```bash
+vex                 # empty editor
+vex /path/to/file   # open specific file
 ```
 
+### Key Shortcuts
 
+| Action                  | Shortcut            |
+|------------------------|---------------------|
+| New file               | `Ctrl+N`            |
+| Open file (GUI)        | `Ctrl+Shift+O`      |
+| Open file (by path)    | `Ctrl+O`            |
+| Save                   | `Ctrl+S` or `:w`    |
+| Save As                | `Ctrl+Shift+S`      |
+| Find & Replace         | `Ctrl+F`            |
+| Toggle Vim Mode        | `Esc` or `View → Vim Mode` |
+| Quit                   | `:q`, `:wq`, or `Ctrl+Q` |
 
-\### 🔧 Requirements
-
-
-
-\- 🧰 \*\*Qt\*\* 5.15+ or Qt 6
-
-\- 🛠️ \*\*CMake\*\* 3.16+
-
-\- 🧪 \*\*Compiler:\*\* GCC or Clang
-
-\- 🐧 \*\*Platform:\*\* Linux (.deb)
-
-
-
-> 💡 Tip: Use `-DCMAKE\_BUILD\_TYPE=Release` for optimized builds.
-
-
+In **Vi mode**: `h/j/k/l`, `i`, `a`, `x`, `dd`, `yy`, `o`, `w`, `b`, `:w`, `:q`, etc.
 
 ---
 
+## 🎨 Theming & Syntax
 
+- Themes are stored as `~/.config/VexEditor/theme.qss`
+- Syntax rules are in `~/.config/VexEditor/syntax.vex`
+- Edit both live via **View → Theme Editor** or **Edit Syntax Rules...**
 
-\## ✨ Features
-
-
-
-\- 🧙‍♂️ \*\*Vim Mode\*\* – Modal editing with familiar keybindings (`hjkl`, `x`, `dd`, `:`)
-
-\- 🗂️ \*\*Tabbed Interface\*\* – Closable, movable tabs for multitasking
-
-\- 🎨 \*\*Syntax Highlighting\*\* – Powered by `QSyntaxHighlighter`
-
-\- 🔍 \*\*Find \& Replace\*\* – Case-sensitive, whole-word, directional search
-
-\- 🔄 \*\*File Watcher\*\* – Auto-reload on external changes
-
-\- 🔌 \*\*Plugin System\*\* – Load `.so` plugins via `QPluginLoader`
-
-\- 🖌️ \*\*Theme Editor\*\* – Live QSS editing and saving
-
-\- 🔤 \*\*Font Customization\*\* – Choose your favorite editor font
-
-\- 🔢 \*\*Smart Line Numbers\*\* – Dynamic width, color-coded
-
-\- 📍 \*\*Cursor Tracking\*\* – Real-time mode and position updates
-
-\- 🔐 \*\*Permission Handling\*\* – Auto-escalation in terminal if access is denied
-
-
-
----
-
-
-
-\## 🧩 Plugin Development
-
-
-
-Extend Vex with modular plugins using a clean interface:
-
-
-
-```cpp
-
-class VexPluginInterface {
-
-public:
-
-&nbsp;   virtual ~VexPluginInterface() = default;
-
-&nbsp;   virtual QString name() const = 0;
-
-&nbsp;   virtual void initialize(VexEditor \*editor) = 0;
-
-&nbsp;   virtual void cleanup() {}
-
-};
-
+Example syntax rule:
+```txt
+X-REG "bash";
+File = .sh && .bash
+Sw = +ES'#!/bin/bash'ES-
++ES'if'ES- && +ES'fi'ES- = color:#FF6B6B = font:B
++HS'"'HS- to +HE'"'HE- = color:#98D8C8
 ```
 
+---
 
+## 🧩 Plugins
 
-\- Place plugins in the `plugins/` directory
+Place `.so` Qt plugin files in:
+```
+~/.config/VexEditor/plugins/
+```
+Then use **View → Extensions → Reload Plugins**.
 
-\- Use `QPluginLoader` and `Q\_DECLARE\_INTERFACE`
+Plugins must implement the `VexPluginInterface`.
 
-\- See `plugins/sample\_plugin/` for a starter template
+---
 
+## 📄 License
 
+Licensed under the **Apache License 2.0**  
+© [Zynomon](https://github.com/zynomon)
 
 ---
 
 
+Want to contribute or report a bug? Open an [Issue](https://github.com/zynomon/vex/issues) or submit a PR!
+WE will, ohh i mean i will surely read it when i have time right now i got some bugs to fix too the reason behind this version is boost out error.os development rate before 2026
 
-\## 🎨 Theme Customization
+--- 
 
-
-
-\- Built-in theme editor tab
-
-\- QSS-based styling
-
-\- Switch between system styles (Fusion, Breeze, etc.)
-
-\- Save and reload themes instantly
-
-
+*(Project Status: **v3.0 "Mint Leaf"** — LTS until May 1, 2026)*
 
 ---
-
-
-
-\## 🛠️ Contributing
-
-
-
-We welcome clean, modular contributions:
-
-
-
-\- 🧩 New plugins (UI, syntax, preview)
-
-\- 🐞 Bug fixes and performance tweaks
-
-\- 🎨 Theme packs and font presets
-
-
-
-\*\*Guidelines:\*\*
-
-
-
-\- Follow the established C++/Qt style
-
-\- Keep plugins isolated and well documented
-
-\- Submit PRs with descriptive commit messages
-
-
-
----
-
-
-
-\## 📄 License
-
-
-
-Apache-2.0 © \[Zynomon](https://github.com/zynomon)
-
-
-
----
-
-
-
-Let me know if you want to modularize this further into sections like “Developer Docs,” “Plugin API,” or “Theme Packs.” I can also help scaffold a CONTRIBUTING.md or plugin manifest template.
-
