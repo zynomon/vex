@@ -1,4 +1,4 @@
-![vex](https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14
+![vex](https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14)
 #  Vex — A Lightweight Vim-Inspired Text Editor
 
 <img width="1004" height="724" alt="image" src="https://github.com/user-attachments/assets/2e148473-2804-4138-83b9-6658451d1365" />
