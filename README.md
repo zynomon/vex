@@ -104,6 +104,8 @@ Place `.so` Qt plugin files in:
 Then use **View → Extensions → Reload Plugins**.
 
 Plugins must implement the `VexPluginInterface`.
+Read The source MAin.cpp to understand
+
 
 ---
 
