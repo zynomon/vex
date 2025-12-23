@@ -1,0 +1,46 @@
+REG "bash";
+File = .sh && .bash && .zsh
+Sw = +ES'#!/bin/bash'ES- && +ES'#!/bin/sh'ES- && +ES'#!/usr/bin/env bash'ES-
+
+# Control flow keywords
++ES'if'ES- && +ES'then'ES- && +ES'else'ES- && +ES'elif'ES- && +ES'fi'ES- && +ES'case'ES- && +ES'esac'ES- && +ES'for'ES- && +ES'while'ES- && +ES'do'ES- && +ES'done'ES- && +ES'until'ES- && +ES'select'ES- = color:#FF6B6B = font:B
+
+# Function keywords
++ES'function'ES- && +ES'return'ES- && +ES'local'ES- && +ES'declare'ES- && +ES'readonly'ES- && +ES'export'ES- = color:#4ECDC4 = font:B
+
+# Common commands
++ES'echo'ES- && +ES'cat'ES- && +ES'grep'ES- && +ES'sed'ES- && +ES'awk'ES- && +ES'cut'ES- && +ES'sort'ES- && +ES'uniq'ES- && +ES'wc'ES- && +ES'head'ES- && +ES'tail'ES- = color:#95E1D3 = font:BI
+
+# File operations
++ES'ls'ES- && +ES'cd'ES- && +ES'pwd'ES- && +ES'mkdir'ES- && +ES'rm'ES- && +ES'cp'ES- && +ES'mv'ES- && +ES'touch'ES- && +ES'find'ES- && +ES'chmod'ES- && +ES'chown'ES- = color:#F38181 = font:BI
+
+# Text processing
++ES'tr'ES- && +ES'paste'ES- && +ES'join'ES- && +ES'diff'ES- && +ES'comm'ES- && +ES'tee'ES- = color:#AA96DA = font:BI
+
+# System commands
++ES'ps'ES- && +ES'top'ES- && +ES'kill'ES- && +ES'bg'ES- && +ES'fg'ES- && +ES'jobs'ES- && +ES'sudo'ES- && +ES'su'ES- = color:#FCBAD3 = font:B
+
+# Network commands
++ES'curl'ES- && +ES'wget'ES- && +ES'ssh'ES- && +ES'scp'ES- && +ES'ping'ES- && +ES'netstat'ES- = color:#FFFFD2 = font:BI
+
+# Package managers
++ES'apt'ES- && +ES'apt-get'ES- && +ES'yum'ES- && +ES'dnf'ES- && +ES'pacman'ES- && +ES'brew'ES- = color:#A8D8EA = font:B
+
+# Test operators
++ES'test'ES- && +ES'['ES- && +ES']'ES- && +ES'[['ES- && +ES']]'ES- = color:#FFAAA5 = font:B
+
+# String delimiters and quotes
++HS'"'HS- to +HE'"'HE- = color:#98D8C8 = font:N
++HS"'"HS- to +HE"'"HE- = color:#98D8C8 = font:N
+
+# Heredoc
++HS'<<EOF'HS- to +HE'EOF'HE- = color:#C7CEEA = font:I
++HS'<<-EOF'HS- to +HE'EOF'HE- = color:#C7CEEA = font:I
++HS'<<"EOF"'HS- to +HE'EOF'HE- = color:#C7CEEA = font:I
+
+# Command substitution
++HS'$('HS- to +HE')'HE- = color:#FFB7B2 = font:N
++HS'`'HS- to +HE'`'HE- = color:#FFB7B2 = font:N
+
+# Variables
++ES'

@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Version=1.0
+Version=3.0
 Name=Vex
 Name[bn]=ভেক্স
 GenericName=Text Editor
@@ -13,6 +13,11 @@ Terminal=false
 StartupNotify=true
 StartupWMClass=vex
 Categories=Development;TextEditor;Qt;
-MimeType=text/plain;text/markdown;text/x-c++;text/x-csrc;text/x-chdr;text/x-python;text/x-shellscript;text/x-java;text/x-pascal;text/x-rust;text/x-go;text/x-csharp;text/x-php;text/x-perl;text/x-tcl;text/x-lua;text/x-yaml;text/x-json;text/x-tex;text/x-makefile;text/x-cmake;text/x-log;text/x-readme;text/x-copying;text/x-install;text/x-config;text/x-properties;text/x-po;text/x-sql;
-Keywords=editor;text;code;vex;modular;qt;syntax;lightweight;error.os;
-Keywords[bn]=এডিটর;টেক্সট;কোড;ভেক্স;মডুলার;কিউটি;সিনট্যাক্স;হালকা;এরর.ওএস;
+MimeType=text/plain;text/x-chdr;text/x-csrc;text/x-c++hdr;text/x-c++src;text/x-python;text/x-java;text/x-shellscript;text/x-makefile;text/x-cmake;text/x-markdown;text/x-readme;text/x-log;text/x-diff;text/x-patch;text/x-config;text/x-ini;text/x-properties;text/x-yaml;text/x-json;text/x-xml;text/x-html;text/x-css;text/x-javascript;text/x-typescript;text/x-rust;text/x-go;text/x-php;text/x-perl;text/x-ruby;text/x-lua;text/x-sql;text/x-tex;text/x-bibtex;text/x-po;
+Keywords=editor;text;code;vex;modular;qt;syntax;lightweight;error.os;vim;
+Keywords[bn]=এডিটর;টেক্সট;কোড;ভেক্স;মডুলার;কিউটি;সিনট্যাক্স;হালকা;এরর.ওএস;ভিম;
+X-GNOME-FullName=Vex Text Editor
+X-GNOME-FullName[bn]=ভেক্স টেক্সট এডিটর
+X-GNOME-SingleWindow=false
+X-MultipleArgs=true
+X-AppImage-Version=3.0

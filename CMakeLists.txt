@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(vex VERSION 1.0 LANGUAGES CXX)
+project(vex VERSION 3.0 LANGUAGES CXX)
 
 # Qt setup
 set(CMAKE_AUTOUIC ON)
@@ -9,40 +9,27 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Qt detection
-find_package(QT NAMES Qt6 REQUIRED COMPONENTS Core Widgets Svg)
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Svg SvgWidgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
-# Source files
-set(PROJECT_SOURCES
-
-    resources.qrc
+qt_add_executable(vex
+    main.cpp
+    deafults.qrc
 )
 
-# Executable
-qt_add_executable(vex ${PROJECT_SOURCES}
-    main.cpp
-    main.cpp)
 
-# Link Qt libraries
 target_link_libraries(vex PRIVATE
     Qt6::Core
     Qt6::Widgets
-    Qt6::Svg
-    Qt6::SvgWidgets
 )
 
-# Install rules
 include(GNUInstallDirs)
 
 install(TARGETS vex
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# Create and install empty plugins directory (for system-wide plugins)
 install(DIRECTORY DESTINATION ${CMAKE_INSTALL_LIBDIR}/vex/plugins)
 
-# Desktop entry
 set(EXECUTABLE_NAME "vex")
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/vex.desktop.in
@@ -54,15 +41,13 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vex.desktop
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications
         COMPONENT desktop)
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/icons/vex.svgz")
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/icons/vex.svgz
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vex.svg
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps
-            COMPONENT icons)
-else()
-    message(WARNING "vex.svgz not found. No branded icon will be installed.")
-endif()
+            COMPONENT icon)
 
-# CPack configuration
+
+
+# Packaging
 include(InstallRequiredSystemLibraries)
 
 set(CPACK_PACKAGE_NAME "vex")
@@ -82,6 +67,6 @@ set(CPACK_PACKAGE_CONTACT "Zynomon Aelius <zynomon@proton.me>")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Zynomon Aelius")
 
 set(CPACK_GENERATOR "DEB;TGZ;ZIP")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libqt6core6, libqt6gui6, libqt6widgets6, libqt6svg6")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libqt6core6, libqt6gui6, libqt6widgets6")
 
 include(CPack)

@@ -1,0 +1,79 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-MinSizeRel-9f6171b05345f23a99d4.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"name" : "MinSizeRel",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "vex",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "vex::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vex-MinSizeRel-caf822b22dc6da52f48a.json",
+					"name" : "vex",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vex_autogen::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vex_autogen-MinSizeRel-f8cc20899112367dd3ed.json",
+					"name" : "vex_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "vex_autogen_timestamp_deps::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-vex_autogen_timestamp_deps-MinSizeRel-28c5c7729fbca879dc2d.json",
+					"name" : "vex_autogen_timestamp_deps",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/user/vex/build/Desktop-MinSizeRel",
+		"source" : "/home/user/vex"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}
