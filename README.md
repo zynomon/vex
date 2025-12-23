@@ -5,7 +5,7 @@
 ![Vex Screenshot](https://github.com/user-attachments/assets/ff3216c1-7818-4b69-aab9-f170261a632a)
 
 **Vex** is a fast, m text editor built with Qt and inspired by Vim keybindings. Designed for developers who want speed without clutter, 
-![Beta](https://img.shields.io/badge/Beta-yellow?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBkPSJNOCAxLjVDMTMuNTIgMS41IDE4IDUuOTggMTggMTEuNSAxOCAxNy4wMiAxMy41MiAyMS41IDggMjEuNSAyLjQ4IDIxLjUgLTIgMTcuMDIgLTIgMTEuNSAtMiA1Ljk4IDIuNDggMS41IDggMS41em0wIDEuNEM0LjIzIDIuOSAwIDYuMjMgMCAxMC41YzAgNC4yNyA0LjIzIDcuNiA4IDcuNiA0Ljc3IDAgOCAzLjMzIDggNy42IDAgLTQuMjcgLTMuMjMtNy42IC04LTcuNnoiLz48L3N2Zz4%3D)Vex supports syntax highlighting ( custom in DSL ) ,
+
 Vi mode,
 theming,
 plugins,
@@ -16,7 +16,7 @@ and more—all while staying lightweight. basically less line more work just how
 ## ✨ Features
 
 - **Vim-style navigation & editing** (`h/j/k/l`, `i/a`, `o`, `dd`, `yy`, etc.)
-- **Syntax highlighting** via custom `.vex` rules system
+- ![Beta](https://img.shields.io/badge/Beta-yellow?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBkPSJNOCAxLjVDMTMuNTIgMS41IDE4IDUuOTggMTggMTEuNSAxOCAxNy4wMiAxMy41MiAyMS41IDggMjEuNSAyLjQ4IDIxLjUgLTIgMTcuMDIgLTIgMTEuNSAtMiA1Ljk4IDIuNDggMS41IDggMS41em0wIDEuNEM0LjIzIDIuOSAwIDYuMjMgMCAxMC41YzAgNC4yNyA0LjIzIDcuNiA4IDcuNiA0Ljc3IDAgOCAzLjMzIDggNy42IDAgLTQuMjcgLTMuMjMtNy42IC04LTcuNnoiLz48L3N2Zz4%3D)  **Syntax highlighting** via custom `.vex` rules system
 - **Drag-and-drop file support**
 - **Admin-mode editing** for system files (using `sudo` + terminal)
 - **Find & Replace** with regex-like options
