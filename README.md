@@ -5,7 +5,6 @@ Based on your project and files, here’s a **clean, professional README.md** yo
 # Vex — A Lightweight Vim-Inspired Text Editor
 
 ![Vex Screenshot](https://github.com/user-attachments/assets/ff3216c1-7818-4b69-aab9-f170261a632a)
-<img width="554" height="596" alt="image" src="https://github.com/user-attachments/assets/95a50bfd-e2e2-4bdc-a72c-bb0e6b8bf8a8" />
 
 **Vex** is a fast, m text editor built with Qt and inspired by Vim keybindings. Designed for developers who want speed without clutter, 
 ![Beta](https://img.shields.io/badge/Beta-yellow?style=flat&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij48cGF0aCBkPSJNOCAxLjVDMTMuNTIgMS41IDE4IDUuOTggMTggMTEuNSAxOCAxNy4wMiAxMy41MiAyMS41IDggMjEuNSAyLjQ4IDIxLjUgLTIgMTcuMDIgLTIgMTEuNSAtMiA1Ljk4IDIuNDggMS41IDggMS41em0wIDEuNEM0LjIzIDIuOSAwIDYuMjMgMCAxMC41YzAgNC4yNyA0LjIzIDcuNiA4IDcuNiA0Ljc3IDAgOCAzLjMzIDggNy42IDAgLTQuMjcgLTMuMjMtNy42IC04LTcuNnoiLz48L3N2Zz4%3D)Vex supports syntax highlighting ( custom in DSL ) ,
