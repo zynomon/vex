@@ -1,9 +1,3 @@
-Here’s a refined version of your Vex README section with improved formatting, icon usage, and removal of Windows references. I’ve also polished the language for clarity and impact while keeping your modular, cinematic vibe intact:
-
-
-
----
-
 
 
 \# ⚡ Vex
