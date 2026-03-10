@@ -1,0 +1,11 @@
+# ninja log v6
+15	1797	7947587738127556	vex_autogen/timestamp	8d453bcf4b6f1b05
+15	1797	7947587738127556	vex_autogen/mocs_compilation.cpp	8d453bcf4b6f1b05
+15	1797	7947587738127556	C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-Debug/vex_autogen/timestamp	8d453bcf4b6f1b05
+15	1797	7947587738127556	C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-Debug/vex_autogen/mocs_compilation.cpp	8d453bcf4b6f1b05
+1816	1941	7947587741113718	vex_autogen/EWIEGA46WW/qrc_defaults.cpp	62a79a6b928d348f
+1816	1941	7947587741113718	C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-Debug/vex_autogen/EWIEGA46WW/qrc_defaults.cpp	62a79a6b928d348f
+1942	2097	7947587741298633	CMakeFiles/vex.dir/vex_autogen/mocs_compilation.cpp.obj	1b544d25a2756816
+1958	2197	7947587741451409	CMakeFiles/vex.dir/vex_autogen/EWIEGA46WW/qrc_defaults.cpp.obj	c29b5b78ee368fd5
+1951	14332	7947587741383209	CMakeFiles/vex.dir/main.cpp.obj	39ace90d871f8107
+14334	17850	7947587865209707	vex.exe	968e1aabf3bce7b5

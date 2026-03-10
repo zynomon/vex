@@ -2,5 +2,6 @@
     <qresource prefix="/">
         <file>syntax.vex</file>
         <file>theme.qss</file>
+        <file>build/vex.svg</file>
     </qresource>
 </RCC>

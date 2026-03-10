@@ -13,7 +13,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
 qt_add_executable(vex
     main.cpp
-    deafults.qrc
+    defaults.qrc
 )
 
 

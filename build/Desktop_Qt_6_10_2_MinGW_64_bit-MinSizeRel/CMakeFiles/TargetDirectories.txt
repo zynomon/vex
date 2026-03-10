@@ -1,0 +1,11 @@
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/vex.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/package.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/package_source.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/edit_cache.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/rebuild_cache.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/list_install_components.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/install.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/install/local.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/install/strip.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/vex_autogen_timestamp_deps.dir
+C:/Users/fast/Documents/GitHub/vex/build/Desktop_Qt_6_10_2_MinGW_64_bit-MinSizeRel/CMakeFiles/vex_autogen.dir
