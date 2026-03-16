@@ -1,19 +1,19 @@
 cmake_minimum_required(VERSION 3.16)
-
 project(vex VERSION 3.0 LANGUAGES CXX)
-
-# Qt setup
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
 qt_add_executable(vex
-    main.cpp
-    deafults.qrc
+    main.cxx
+    Plugvex.H
+    Settings.H
+    $<$<PLATFORM_ID:Windows>:DBS/windows/ico.qrc>
+    $<$<PLATFORM_ID:Darwin>:DBS/mac/icns.qrc>
 )
 
 
@@ -36,7 +36,11 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/vex.desktop
     @ONLY
 )
-
+if(WIN32)
+    set_target_properties(vex PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
+endif()
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vex.desktop
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications
         COMPONENT desktop)
@@ -54,7 +58,7 @@ set(CPACK_PACKAGE_NAME "vex")
 set(CPACK_PACKAGE_VENDOR "error.os")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
     " ♦️ Vex is a modular, MIME-aware editor designed for expressive system integration and branded desktop environments. \
-    Built with performance and clarity in mind, it aligns with error.os principles of transparency, user empowerment, and visual polish. \
+    Built with performance and clarity in mind, user empowerment, and visual polish. \
     Vex supports multilingual UI, scalable icon logic, and clean packaging for Linux distributions. \
     Its install footprint is minimal, its launch behavior is predictable, and its desktop entry is fully localized. \
     Ideal for developers, system architects, and themed distributions seeking a lightweight yet intentional editing experience."
@@ -70,3 +74,4 @@ set(CPACK_GENERATOR "DEB;TGZ;ZIP")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libqt6core6, libqt6gui6, libqt6widgets6")
 
 include(CPack)
+add_subdirectory(Core)
