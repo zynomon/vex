@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
-project(vex VERSION 3.0 LANGUAGES CXX)
+project(vex VERSION 4.1 LANGUAGES CXX)
+
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -8,70 +9,66 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
+add_subdirectory(Core)
+
 qt_add_executable(vex
     main.cxx
     Plugvex.H
     Settings.H
-    $<$<PLATFORM_ID:Windows>:DBS/windows/ico.qrc>
-    $<$<PLATFORM_ID:Darwin>:DBS/mac/icns.qrc>
+    $<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/DBS/win/ico.qrc>
+    $<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/DBS/mac/icns.qrc>
 )
-
 
 target_link_libraries(vex PRIVATE
     Qt6::Core
     Qt6::Widgets
+    VexCore
+    SyntaxCore
+    LookAndFeelCore
 )
 
 include(GNUInstallDirs)
 
 install(TARGETS vex
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    BUNDLE DESTINATION .  
+
 )
 
-install(DIRECTORY DESTINATION ${CMAKE_INSTALL_LIBDIR}/vex/plugins)
+if(WIN32 OR APPLE)
 
-set(EXECUTABLE_NAME "vex")
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/vex.desktop.in
-    ${CMAKE_CURRENT_BINARY_DIR}/vex.desktop
-    @ONLY
-)
+    install(TARGETS VexCore SyntaxCore LookAndFeelCore
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}  
+
+        LIBRARY DESTINATION ${CMAKE_INSTALL_BINDIR}  
+
+    )
+else()
+
+    install(TARGETS VexCore SyntaxCore LookAndFeelCore
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/vex
+    )
+endif()
+
+if(UNIX AND NOT APPLE)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/DBS/vex.desktop
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications
+    )
+
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/DBS/vex.svg
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps
+    )
+endif()
+
 if(WIN32)
     set_target_properties(vex PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
 endif()
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vex.desktop
-        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications
-        COMPONENT desktop)
 
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vex.svg
-            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps
-            COMPONENT icon)
-
-
-
-# Packaging
-include(InstallRequiredSystemLibraries)
-
-set(CPACK_PACKAGE_NAME "vex")
-set(CPACK_PACKAGE_VENDOR "error.os")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
-    " ♦️ Vex is a modular, MIME-aware editor designed for expressive system integration and branded desktop environments. \
-    Built with performance and clarity in mind, user empowerment, and visual polish. \
-    Vex supports multilingual UI, scalable icon logic, and clean packaging for Linux distributions. \
-    Its install footprint is minimal, its launch behavior is predictable, and its desktop entry is fully localized. \
-    Ideal for developers, system architects, and themed distributions seeking a lightweight yet intentional editing experience."
-)
-set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
-set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
-set(CPACK_PACKAGE_VERSION_PATCH 0)
-
-set(CPACK_PACKAGE_CONTACT "Zynomon Aelius <zynomon@proton.me>")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Zynomon Aelius")
-
-set(CPACK_GENERATOR "DEB;TGZ;ZIP")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libqt6core6, libqt6gui6, libqt6widgets6")
-
-include(CPack)
-add_subdirectory(Core)
+if(APPLE)
+    set_target_properties(vex PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/DBS/mac/Info.plist
+    )
+endif()

@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+set -eu
+
+readonly bgreen='\033[1;32m'
+
+readonly green='\033[0;32m'
+
+readonly bdgreen='\033[1;38;5;28m'
+
+readonly dgreen='\033[38;5;28m'
+
+readonly grey='\033[38;5;247m'
+
+readonly white='\033[1;37m'
+
+readonly red='\033[1;31m'
+
+readonly nc='\033[0m'
+
+if command -v fc-list >/dev/null 2>&1 && fc-list | grep -qi "nerd font"; then
+    readonly has_nerd_font=true
+else
+    readonly has_nerd_font=false
+fi
+
+if [[ "$has_nerd_font" == true ]]; then
+    icon_debug=''
+    icon_release=''
+    icon_relwithdebinfo=''
+    icon_minsizerel=''
+    icon_arrow=''
+    icon_deb=''
+    icon_rpm=''
+    icon_arch=''
+    icon_mac=''
+    icon_freebsd=''
+    icon_tgz=''
+    icon_appimage=''
+    icon_all=''
+    icon_profile=''
+    icon_target=''
+    icon_build=''
+    icon_package=''
+    icon_clean=''
+    icon_success=''
+    icon_failed=''
+    icon_summary=''
+else
+    icon_debug=''
+    icon_release=''
+    icon_relwithdebinfo=''
+    icon_minsizerel=''
+    icon_arrow=''
+    icon_deb=''
+    icon_rpm=''
+    icon_arch=''
+    icon_mac=''
+    icon_freebsd=''
+    icon_tgz=''
+    icon_appimage=''
+    icon_all=''
+    icon_profile=''
+    icon_target=''
+    icon_build=''
+    icon_package=''
+    icon_clean=''
+    icon_success=''
+    icon_failed=''
+    icon_summary=''
+fi
+
+echo -e "\033[42;1;37m"
+cat << "EOF"
+▀████▀        ▀███▀
+  ▀██         ▄█
+   ██▄      ▄█        ▄▄█▀██    ▀██▀   ▀██▀
+   ██▄    █▀        ▄█▀    ██     ▀██ ▄█▀
+   ▀██  █▀          ██▀▀▀▀▀▀       ███
+    ▄██▄            ██▄    ▄     ▄█▀ ██▄
+     ██              ▀█████▀   ▄██▄   ▄██▄
+EOF
+echo -e "${nc}"
+
+if [[ "$has_nerd_font" == true ]]; then
+    echo -e "                                               ${dgreen}${icon_package} pkg${nc}"
+    echo -e "                                              ${dgreen}${icon_build} build${nc}"
+else
+    echo -e "                                                 ${dgreen}pkg${nc}"
+    echo -e "                                               ${dgreen}build${nc}"
+fi
+echo -e "${white}_______________________________________________________________________________________________________\n${nc}"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+source "${SCRIPT_DIR}/CONF"
+
+BUILD_TYPE="Release"
+TARGETS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --options)
+            profile_num="$2"
+            target_num="$3"
+            case $profile_num in
+                1) BUILD_TYPE="Debug" ;;
+                2) BUILD_TYPE="Release" ;;
+                3) BUILD_TYPE="RelWithDebInfo" ;;
+                4) BUILD_TYPE="MinSizeRel" ;;
+            esac
+            case $target_num in
+                1) TARGETS=(deb) ;;
+                2) TARGETS=(rpm) ;;
+                3) TARGETS=(arch) ;;
+                4) TARGETS=(mac) ;;
+                5) TARGETS=(freebsd) ;;
+                6) TARGETS=(tgz) ;;
+                7) TARGETS=(appimage) ;;
+                8) TARGETS=(deb rpm arch mac freebsd tgz appimage) ;;
+            esac
+            shift 3
+            ;;
+        --clean)
+            echo -e "${white}${icon_clean} Cleaning build directories...${nc}"
+            rm -rf "${BUILD_DIR}" "${PKG_BUILD_BASE}"
+            echo -e "${green}${icon_success} Clean complete.${nc}"
+            exit 0
+            ;;
+        *) shift ;;
+    esac
+done
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+    if [[ -t 1 ]]; then
+        echo -e "\n\n${white}${icon_profile} CMAKE PROFILE SELECTION${nc}"
+        echo -e "${dgreen}____________________________________________________________________${nc}\n"
+        echo -e "${icon_debug} ${white}1>${nc} ${green}Debug${nc}                  ${grey}// Debug info included${nc}"
+        echo -e "${icon_release} ${white}2>${nc} ${bgreen}Release${nc}                ${grey}// Optimized, smallest binary${nc}"
+        echo -e "${icon_relwithdebinfo} ${white}3>${nc} ${bdgreen}Release + Debug${nc}        ${grey}// Optimized with symbols${nc}"
+        echo -e "${icon_minsizerel} ${white}4>${nc} ${dgreen}MinSizeRel${nc}             ${grey}// Smallest size optimization${nc}"
+
+        read -p "$(echo -e "${bgreen}${icon_arrow} Select Profile [2]: ${nc}")" p
+        case $p in
+            1) BUILD_TYPE="Debug" ;;
+            3) BUILD_TYPE="RelWithDebInfo" ;;
+            4) BUILD_TYPE="MinSizeRel" ;;
+            *) BUILD_TYPE="Release" ;;
+        esac
+
+        echo -e "\n\n${white}${icon_target} TARGET SELECTION${nc}"
+        echo -e "${dgreen}____________________________________________________________________${nc}\n"
+        echo -e "  ${icon_deb} ${white}1>${nc} ${green}Deb${nc}          ${grey}// Debian/Ubuntu${nc}"
+        echo -e "  ${icon_rpm} ${white}2>${nc} ${green}Rpm${nc}          ${grey}// Fedora/RHEL${nc}"
+        echo -e "  ${icon_arch} ${white}3>${nc} ${green}Arch${nc}         ${grey}// Arch Linux${nc}"
+        echo -e "  ${icon_mac} ${white}4>${nc} ${green}Mac${nc}          ${grey}// macOS (.pkg/.dmg)${nc}"
+        echo -e "  ${icon_freebsd} ${white}5>${nc} ${green}FreeBSD${nc}      ${grey}// FreeBSD package${nc}"
+        echo -e "  ${icon_tgz} ${white}6>${nc} ${green}Tar.gz${nc}       ${grey}// Compressed archive${nc}"
+        echo -e "  ${icon_appimage} ${white}7>${nc} ${green}AppImage${nc}     ${grey}// Portable Linux${nc}"
+        echo -e "  ${icon_all} ${white}8>${nc} ${bdgreen}ALL${nc}          ${grey}// Build all formats${nc}"
+
+        read -p "$(echo -e "${bgreen}${icon_arrow} Select Target [1]: ${nc}")" t
+        case $t in
+            1) TARGETS=(deb) ;;
+            2) TARGETS=(rpm) ;;
+            3) TARGETS=(arch) ;;
+            4) TARGETS=(mac) ;;
+            5) TARGETS=(freebsd) ;;
+            6) TARGETS=(tgz) ;;
+            7) TARGETS=(appimage) ;;
+            8) TARGETS=(deb rpm arch mac freebsd tgz appimage) ;;
+            *) TARGETS=(deb) ;;
+        esac
+    fi
+fi
+
+while IFS='=' read -r var _; do
+    [[ "$var" =~ ^[A-Z_]+$ ]] && export "$var"
+done < "${SCRIPT_DIR}/CONF"
+
+echo -e "\n${white}${icon_build} Building profile: ${bgreen}${BUILD_TYPE}${nc}"
+echo -e "${white}${icon_target} Targets: ${green}${TARGETS[*]}${nc}"
+echo -e "${dgreen}____________________________________________________________________${nc}\n"
+
+echo -e "${green}${icon_build} [BUILD]${nc} Configuring and compiling..."
+cmake -S "${PROJECT_ROOT}" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
+cmake --build "${BUILD_DIR}" -j$(nproc 2>/dev/null || echo 4)
+cmake --install "${BUILD_DIR}" --prefix "${STAGE_DIR}/usr"
+
+SUCCESS=()
+FAILED=()
+
+for tgt in "${TARGETS[@]}"; do
+    echo -e "${green}${icon_package} [PKG]${nc} Starting package build: ${white}${tgt}${nc}"
+
+
+        SCRIPT_PATH="${DBS_DIR}/${tgt}.sh"
+
+
+    if bash "$SCRIPT_PATH"; then
+
+        SUCCESS+=("$tgt")
+        echo -e "  ${bgreen}${icon_success} Success${nc}"
+    else
+        FAILED+=("$tgt")
+        echo -e "  ${red}${icon_failed} Failed${nc}"
+    fi
+done
+
+echo -e "\n${white}${icon_summary} BUILD SUMMARY${nc}"
+echo -e "${dgreen}____________________________________________________________________${nc}\n"
+[[ ${#SUCCESS[@]} -gt 0 ]] && echo -e "${bgreen}${icon_success} Successful: ${SUCCESS[*]}${nc}"
+[[ ${#FAILED[@]} -gt 0 ]] && echo -e "${red}${icon_failed} Failed: ${FAILED[*]}${nc}"
+echo -e "${white}____________________________________Exit?  :)${nc}"

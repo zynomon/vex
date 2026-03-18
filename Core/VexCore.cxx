@@ -57,6 +57,7 @@
 #include "Plugvex.H"
 #include "Settings.H"
 
+
 class VexEditor;
 class LineNumberArea;
 class VexWidget;
@@ -929,7 +930,7 @@ void VexWidget::loadSavedSession() {
         );
 
     if (reply == QMessageBox::Yes) {
-        for (const QString &sessionPath : sessionFiles) {
+        for (const QString &sessionPath : std::as_const(sessionFiles)) {
             QFile file(sessionPath);
             if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
                 QTextStream in(&file);
@@ -990,31 +991,40 @@ void VexWidget::loadSavedSession() {
     updateWindowTitle(m_mainWindow);
     onTabCountChanged(tabWidget->count());
 }
-
 void VexWidget::handleInstanceRequest(const QString &requestFilePath) {
     QFile file(requestFilePath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        while (!in.atEnd()) {
-            QString path = in.readLine().trimmed();
-            if (!path.isEmpty()) {
-                if (QFileInfo::exists(path)) {
-                    openFileAtPath(path);
-                } else if (m_mainWindow) {
-                    m_mainWindow->statusBar()->showMessage("File not found: " + path, 3000);
-                }
-            }
-        }
-        file.close();
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return;
+    }
 
-        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            file.close();
-        }
+    QTextStream in(&file);
+    in.setEncoding(QStringConverter::Utf8);
+    QStringList pathsToOpen;
 
-        if (m_mainWindow) {
-            m_mainWindow->raise();
-            m_mainWindow->activateWindow();
+    while (!in.atEnd()) {
+        QString path = in.readLine().trimmed();
+        if (!path.isEmpty()) {
+            pathsToOpen.append(path);
         }
+    }
+    file.close();
+
+  QFile clearFile(requestFilePath);
+    if (clearFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        clearFile.close();
+    }
+
+ for (const QString &path : pathsToOpen) {
+        if (QFileInfo::exists(path)) {
+            openFileAtPath(path);
+        } else if (m_mainWindow) {
+            m_mainWindow->statusBar()->showMessage(tr("Invalid file path: %1").arg(path), 2000);
+        }
+    }
+
+  if (m_mainWindow && !pathsToOpen.isEmpty()) {
+        m_mainWindow->raise();
+        m_mainWindow->activateWindow();
     }
 }
 
@@ -1131,7 +1141,7 @@ void VexWidget::setupMenus(QMainWindow *mainWin) {
 void VexWidget::setupToolbar(QMainWindow *mainWin) {
     QToolBar *toolbar = mainWin->addToolBar("Main");
     toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-
+    toolbar->setObjectName("Vtoolbar");
     auto addAction = [&](const QString &label, const QString &iconName, const char *slot) {
         QIcon icon = Settings::resolveIcon(iconName);
         QAction *action = new QAction(icon, label, this);
@@ -1157,6 +1167,7 @@ void VexWidget::setupToolbar(QMainWindow *mainWin) {
     toolbar->addSeparator();
     addAction("Find", "edit-find", SLOT(showFindReplaceDialog()));
     addAction("Terminal", "utilities-terminal", SLOT(openTerminal()));
+
 }
 
 void VexWidget::newFile() {
@@ -1741,38 +1752,78 @@ void VexWidget::redo() {
 
 void VexWidget::openTerminal() {
     QString workingDir = getCurrentWorkingDirectory();
+
 #ifdef Q_OS_WIN
-    QProcess::startDetached("cmd.exe", QStringList() << "/K" << "cd" << "/D" << workingDir);
+    QString nativePath = QDir::toNativeSeparators(workingDir);
+
+    QString pwshPath = QStandardPaths::findExecutable("pwsh.exe");
+    if (!pwshPath.isEmpty()) {
+        QProcess::startDetached("cmd.exe",
+                                QStringList() << "/c" << "start" << "pwsh.exe"
+                                              << "-WorkingDirectory" << nativePath << "-NoExit");
+
+        m_mainWindow->statusBar()->showMessage("Testing: start pwsh.exe", 2000);
+        return;
+    }
+
+    QProcess::startDetached("cmd.exe",
+                            QStringList() << "/c" << "start" << "cmd.exe" << "/k" << "cd" << "/d" << nativePath);
+
+    m_mainWindow->statusBar()->showMessage("Testing: start cmd.exe", 2000);
+
 #elif defined(Q_OS_MAC)
+
     QString script = QString("tell application \"Terminal\"\n"
                              "    do script \"cd '%1'\"\n"
                              "    activate\n"
                              "end tell").arg(workingDir);
-    QProcess::execute("osascript", QStringList() << "-e" << script);
+    bool success = QProcess::startDetached("osascript", QStringList() << "-e" << script);
+
+    if (success) {
+        m_mainWindow->statusBar()->showMessage("Terminal (Terminal.app) opened in: " + workingDir, 2000);
+        return;
+    }
+
+    m_mainWindow->statusBar()->showMessage("Failed to open terminal on macOS", 3000);
+
 #else
-    const QStringList terminals = {
-        "konsole", "gnome-terminal", "xfce4-terminal",
-        "mate-terminal", "terminator", "alacritty", "xterm"
+
+    QString terminalUri = "terminal://" + workingDir;
+    bool success = QProcess::startDetached("xdg-open", QStringList() << terminalUri);
+
+    if (success) {
+        m_mainWindow->statusBar()->showMessage("Default terminal opened in: " + workingDir, 2000);
+        return;
+    }
+
+    const QList<QPair<QString, QStringList>> terminals = {
+        {"konsole", {"--workdir", workingDir}},
+        {"gnome-terminal", {"--working-directory=" + workingDir}},
+        {"xfce4-terminal", {"--working-directory=" + workingDir}},
+        {"mate-terminal", {"--working-directory=" + workingDir}},
+        {"terminator", {"--working-directory=" + workingDir}},
+        {"alacritty", {"--working-directory", workingDir}},
+        {"kitty", {"--directory", workingDir}},
+        {"xterm", {"-e", "bash", "-c", QString("cd '%1' && exec bash").arg(workingDir)}},
+        {"urxvt", {"-cd", workingDir}},
+        {"rxvt", {"-cd", workingDir}}
     };
-    for (const QString &term : terminals) {
-        QString termPath = QStandardPaths::findExecutable(term);
+
+    for (const auto &term : terminals) {
+        QString termPath = QStandardPaths::findExecutable(term.first);
         if (!termPath.isEmpty()) {
-            if (term == "konsole") {
-                QProcess::startDetached(termPath, QStringList() << "--workdir" << workingDir);
-            } else if (term == "gnome-terminal") {
-                QProcess::startDetached(termPath, QStringList() << "--working-directory=" + workingDir);
-            } else if (term == "xfce4-terminal") {
-                QProcess::startDetached(termPath, QStringList() << "--working-directory=" + workingDir);
-            } else {
-                QProcess::startDetached(termPath, QStringList(), workingDir);
+            success = QProcess::startDetached(termPath, term.second, workingDir);
+            if (success) {
+                m_mainWindow->statusBar()->showMessage(
+                    QString("Terminal (%1) opened in: %2").arg(term.first).arg(workingDir), 2000);
+                return;
             }
-            return;
         }
     }
-    QMessageBox::warning(this, "Error", "No terminal emulator found.");
+
+    m_mainWindow->statusBar()->showMessage("Failed to open terminal on Linux", 3000);
 #endif
 }
-
 void VexWidget::showAbout() {
     QDialog aboutDialog(this);
     aboutDialog.setWindowTitle("About Vex");
@@ -1794,7 +1845,7 @@ void VexWidget::showAbout() {
     aboutLabel->setStyleSheet("border: none; background: #020a00ff; padding: 12px; font-size: 13px;");
     aboutLabel->setText(R"(
 <h2>Vex Editor v4.1</h2>
-<p><i>A fast Vim-inspired Qt text editor.</i></p>
+<p><i>An extensive Qt text editor.</i></p>
 )");
     layout->addWidget(aboutLabel);
 
@@ -1903,7 +1954,7 @@ void VexWidget::dropEvent(QDropEvent *event) {
 
 void VexWidget::closeEvent(QCloseEvent *event) {
     QString tempDir = Settings::basePath() + "/.temp";
-    QString requestFile = tempDir + "/request";
+    QString requestFile = tempDir + "/fileReq";
 
     bool hasUnsavedChanges = false;
     for (int i = 0; i < tabWidget->count(); ++i) {
@@ -1962,9 +2013,9 @@ void VexWidget::updateWindowTitle(QMainWindow *mainWin) {
     if (editor) {
         QString fileName = filePaths.value(editor);
         if (fileName.isEmpty()) {
-            mainWin->setWindowTitle("Vex - New Draft file");
+            mainWin->setWindowTitle("Vex • New Draft file");
         } else {
-            mainWin->setWindowTitle("Vex - " + QFileInfo(fileName).fileName());
+            mainWin->setWindowTitle("Vex • " + QFileInfo(fileName).fileName());
         }
     } else {
         mainWin->setWindowTitle("Vex");
@@ -2105,27 +2156,40 @@ public:
     }
     bool initialize(MainWindow* window, Settings* settings, CmdLine& cmdLine) {
         QMainWindow *mainWin = reinterpret_cast<QMainWindow*>(window);
+        QPalette pal = mainWin->palette();
+        pal.setColor(QPalette::Window, Qt::black);
+        mainWin->setPalette(pal);
+        mainWin->setAutoFillBackground(true);
 
-        QString vtempdir = Settings::basePath() + "/.temp";
-        QDir().mkpath(vtempdir);
-        QString requestFilePath = vtempdir + "/request";
+        cmdLine.addCommand({{"f", "file"}, "Open file(s) at startup", ""});
+
+        QString tempDir = Settings::basePath() + "/.temp";
+        QDir().mkpath(tempDir);
+        QString requestFilePath = tempDir + "/fileReq";
 
         QFile requestFile(requestFilePath);
 
         if (requestFile.exists()) {
-            if (requestFile.open(QIODevice::Append | QIODevice::Text)) {
-                QTextStream out(&requestFile);
-                QStringList filesToOpen = cmdLine.flagArgs("file");
-                if (filesToOpen.isEmpty()) filesToOpen = cmdLine.positionalArgs();
-
-                for (const QString& path : filesToOpen) {
-                    out << QDir::current().absoluteFilePath(path) << "\n";
+          QTimer::singleShot(0, [&cmdLine, requestFilePath]() {
+                QStringList filesToOpen = cmdLine.flagArgs("f");
+                if (!filesToOpen.isEmpty()) {
+                    QFile requestFile(requestFilePath);
+                    if (requestFile.open(QIODevice::Append | QIODevice::Text)) {
+                        QTextStream out(&requestFile);
+                        out.setEncoding(QStringConverter::Utf8);
+                        for (const QString& path : std::as_const(filesToOpen)) {
+                            out << QDir::current().absoluteFilePath(path) << "\n";
+                        }
+                        requestFile.close();
+                    }
                 }
-                requestFile.close();
-            }
+                qApp->quit();
+            });
             return false;
-        } else {
-            if (requestFile.open(QIODevice::WriteOnly)) requestFile.close();
+        }
+
+        if (requestFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            requestFile.close();
         }
 
         VexWidget *editor = new VexWidget(mainWin);
@@ -2139,21 +2203,23 @@ public:
 
         QFileSystemWatcher *watcher = new QFileSystemWatcher(editor);
         watcher->addPath(requestFilePath);
-        QObject::connect(watcher, &QFileSystemWatcher::fileChanged, editor, [editor, requestFilePath]() {
-            editor->handleInstanceRequest(requestFilePath);
-        });
-
-        cmdLine.addCommand({{"f", "file"}, "Open file(s) at startup", ""});
+        QObject::connect(watcher, &QFileSystemWatcher::fileChanged, editor,
+                         [editor, requestFilePath]() {
+                             QTimer::singleShot(100, [editor, requestFilePath]() {
+                                 editor->handleInstanceRequest(requestFilePath);
+                             });
+                         });
 
         QTimer::singleShot(0, [editor, &cmdLine]() {
-            QStringList files = cmdLine.flagArgs("file");
-            if (files.isEmpty()) files = cmdLine.positionalArgs();
+            QStringList files = cmdLine.flagArgs("f");
             for (const QString& filePath : std::as_const(files)) {
                 editor->openFileAtPath(filePath);
             }
         });
 
         return true;
-    }};
+    }
+
+};
 
 #include "VexCore.moc"

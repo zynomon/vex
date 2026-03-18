@@ -224,8 +224,8 @@ cmdLine.addCommand({{"d", "debug"}, "Enable debug mode", ""});
         QStringList paths;
         paths << QCoreApplication::applicationDirPath();
 
-#ifdef Q_OS_LINUX
-        paths << "/usr/lib/Vex";
+#if defined(Q_OS_UNIX) && !defined(Q_OS_DARWIN)
+        paths << "/usr/lib/vex";
 #endif
 
         QList<CorePlugin*> xylem, phloem, simple;

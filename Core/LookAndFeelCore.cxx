@@ -1,18 +1,11 @@
-/****************************************************************
-*                                                              *
-*                         Apache 2.0                           *
-*     Copyright Zynomon aelius <zynomon@proton.me>  2026       *
-*               Project         :        Vex                   *
-*               Version         :        4.0 (Cytoplasm)       *
-*                                                              *
-*                                                              *
-****************************************************************/
 #include <QObject>
+#include <QInputDialog>
 #include <QtPlugin>
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
+#include <QTabBar>
 #include <QActionGroup>
 #include <QFile>
 #include <QDir>
@@ -31,9 +24,23 @@
 #include <QColor>
 #include <QStyle>
 #include <QRegularExpression>
+#include <QResource>
 #include <algorithm>
 #include "Plugvex.H"
 #include "Settings.H"
+
+class SyntaxColorEvent : public QEvent {
+public:
+    static const QEvent::Type eventType = static_cast<QEvent::Type>(QEvent::User + 1000);
+
+    SyntaxColorEvent(const QMap<QString, QColor> &colors)
+        : QEvent(eventType), m_colors(colors) {}
+
+    QMap<QString, QColor> colors() const { return m_colors; }
+
+private:
+    QMap<QString, QColor> m_colors;
+};
 
 class LookAndFeelCorePlugin : public QObject, public CorePlugin {
     Q_OBJECT
@@ -55,7 +62,7 @@ public:
 
         basePath = Settings::instance().basePath();
         themesPath = basePath + "/themes";
-        stylesheetsPath = themesPath + "/styleSheets";
+        stylesheetsPath = themesPath + "/stylesheets";
         iconsPath = themesPath + "/icon";
 
         QDir().mkpath(themesPath);
@@ -99,33 +106,61 @@ public:
 private slots:
     void onQtStyleSelected(QAction *action) {
         QString styleName = action->data().toString();
-        QApplication::setStyle(QStyleFactory::create(styleName));
-        Settings::instance().setValue("qtStyle", styleName);
-        m_mainWindow->statusBar()->showMessage("Qt Style: " + styleName, 2000);
+
+        if (styleName == "NONE") {
+            QApplication::setStyle(QStyleFactory::create(""));
+            Settings::instance().setValue("qtStyle", "");
+            m_mainWindow->statusBar()->showMessage("Qt Style: System Default", 2000);
+        } else {
+            QApplication::setStyle(QStyleFactory::create(styleName));
+            Settings::instance().setValue("qtStyle", styleName);
+            m_mainWindow->statusBar()->showMessage("Qt Style: " + styleName, 2000);
+        }
     }
 
     void onThemeSelected(QAction *action) {
-        QString themeName = action->data().toString();
-        if (themeName == "CREATE_NEW") {
+        QString themePath = action->data().toString();
+
+        if (themePath == "CREATE_NEW") {
             createNewTheme();
             return;
         }
 
-        QString themeFile = stylesheetsPath + "/" + themeName + ".qss";
-        applyTheme(themeFile, true);
-        currentTheme = themeName;
-        Settings::instance().setValue("currentTheme", themeName);
-        m_mainWindow->statusBar()->showMessage("Theme: " + themeName, 2000);
+        if (themePath == "NONE") {
+            qApp->setStyleSheet("");
+            currentThemePath = "";
+            Settings::instance().setValue("currentThemePath", "");
+            m_mainWindow->statusBar()->showMessage("Theme: None", 2000);
+
+            QList<QAction*> actions = themesMenu->actions();
+            for (QAction *act : actions) {
+                if (act->data().toString() == "NONE") {
+                    act->setChecked(true);
+                    break;
+                }
+            }
+            return;
+        }
+
+        applyTheme(themePath, true);
+        m_mainWindow->statusBar()->showMessage("Theme: " + QFileInfo(themePath).baseName(), 2000);
     }
 
     void onIconThemeSelected(QAction *action) {
         QString iconThemeName = action->data().toString();
-        currentIconTheme = iconThemeName;
-        Settings::instance().setValue("currentIconTheme", iconThemeName);
 
-        updateIconSearchPaths();
-
-        m_mainWindow->statusBar()->showMessage("Icon theme: " + iconThemeName, 2000);
+        if (iconThemeName.isEmpty()) {
+            currentIconTheme = "";
+            QIcon::setThemeName("");
+            QIcon::setThemeSearchPaths(QStringList());
+            Settings::instance().setValue("currentIconTheme", "");
+            m_mainWindow->statusBar()->showMessage("Icon theme: System Default", 2000);
+        } else {
+            currentIconTheme = iconThemeName;
+            Settings::instance().setValue("currentIconTheme", iconThemeName);
+            updateIconSearchPaths();
+            m_mainWindow->statusBar()->showMessage("Icon theme: " + iconThemeName, 2000);
+        }
     }
 
     void onThemeDirectoryChanged(const QString &path) {
@@ -143,21 +178,13 @@ private slots:
             themeWatcher->addPath(path);
         }
 
-        QString themeName = QFileInfo(path).baseName();
-        if (themeName == currentTheme) {
+        if (path.startsWith(":/") || path.startsWith("qrc:"))
+            return;
+
+        if (path == currentThemePath) {
             applyTheme(path, false);
-            m_mainWindow->statusBar()->showMessage("Theme hot-reloaded: " + themeName, 2000);
+            m_mainWindow->statusBar()->showMessage("Theme hot-reloaded: " + QFileInfo(path).baseName(), 2000);
         }
-    }
-
-    void onThemeEditorTextChanged() {
-        QPlainTextEdit *editor = qobject_cast<QPlainTextEdit*>(sender()->parent());
-        if (!editor) return;
-
-        if (!editor->property("isThemeEditor").toBool()) return;
-
-        QString content = editor->toPlainText();
-        applyThemeFromContent(content, false);
     }
 
 private:
@@ -171,7 +198,7 @@ private:
     QString themesPath;
     QString stylesheetsPath;
     QString iconsPath;
-    QString currentTheme;
+    QString currentThemePath;
     QString currentIconTheme;
 
     void createViewMenuIntegration() {
@@ -198,6 +225,12 @@ private:
             createNewTheme();
         });
         themesMenu->addSeparator();
+
+        QAction *noneThemeAction = themesMenu->addAction("None (No Theme)");
+        noneThemeAction->setCheckable(true);
+        noneThemeAction->setData("NONE");
+
+        themesMenu->addSeparator();
         rebuildThemesMenu();
 
         iconMenu = viewMenu->addMenu("&Icon Theme");
@@ -207,9 +240,20 @@ private:
     void populateQtStyleMenu() {
         QStringList availableStyles = QStyleFactory::keys();
         QString currentStyle = QApplication::style()->objectName();
+        QString savedStyle = Settings::instance().get<QString>("qtStyle");
 
         QActionGroup *styleGroup = new QActionGroup(this);
         styleGroup->setExclusive(true);
+
+        QAction *noneAction = qtStyleMenu->addAction("System Default");
+        noneAction->setCheckable(true);
+        noneAction->setData("NONE");
+        styleGroup->addAction(noneAction);
+
+        if (savedStyle.isEmpty())
+            noneAction->setChecked(true);
+
+        qtStyleMenu->addSeparator();
 
         for (const QString &styleName : std::as_const(availableStyles)) {
             QAction *action = qtStyleMenu->addAction(styleName);
@@ -217,9 +261,10 @@ private:
             action->setData(styleName);
             styleGroup->addAction(action);
 
-            if (styleName.toLower() == currentStyle.toLower()) {
+            if (!savedStyle.isEmpty() && styleName.toLower() == savedStyle.toLower())
                 action->setChecked(true);
-            }
+            else if (savedStyle.isEmpty() && styleName.toLower() == currentStyle.toLower())
+                action->setChecked(true);
         }
 
         connect(styleGroup, &QActionGroup::triggered,
@@ -228,46 +273,64 @@ private:
 
     void rebuildThemesMenu() {
         QList<QAction*> actions = themesMenu->actions();
-        for (int i = actions.size() - 1; i >= 2; --i) {
+
+        for (int i = actions.size() - 1; i >= 4; --i) {
             themesMenu->removeAction(actions[i]);
             delete actions[i];
-        }
-
-        QDir stylesDir(stylesheetsPath);
-        QStringList filters;
-        filters << "*.qss";
-        QStringList themeFiles = stylesDir.entryList(filters, QDir::Files);
-
-        if (themeFiles.isEmpty()) {
-            QAction *noThemes = themesMenu->addAction("No themes available");
-            noThemes->setEnabled(false);
-            return;
         }
 
         QActionGroup *themeGroup = new QActionGroup(this);
         themeGroup->setExclusive(true);
 
-        QStringList sortedThemes;
-        for (const QString &file : std::as_const(themeFiles)) {
-            sortedThemes.append(QFileInfo(file).baseName());
-        }
-        sortedThemes.sort(Qt::CaseInsensitive);
+        QAction *noneAction = themesMenu->actions().at(2);
 
-        for (const QString &themeName : std::as_const(sortedThemes)) {
-            QAction *action = themesMenu->addAction(themeName);
+        themeGroup->addAction(noneAction);
+
+        QStringList allPaths;
+
+        QDir stylesDir(stylesheetsPath);
+        QStringList fsThemes = stylesDir.entryList(QStringList() << "*.qss", QDir::Files);
+        for (const QString &file : std::as_const(fsThemes)) {
+            allPaths.append(stylesDir.absoluteFilePath(file));
+        }
+
+        QDir qrcDir(":/");
+        if (qrcDir.exists()) {
+            QStringList qrcFiles = qrcDir.entryList(QStringList() << "*.qss", QDir::Files);
+            for (const QString &file : std::as_const(qrcFiles)) {
+                allPaths.append(":/" + file);
+            }
+        }
+
+        if (allPaths.isEmpty()) {
+            QAction *noThemes = themesMenu->addAction("No themes available");
+            noThemes->setEnabled(false);
+            return;
+        }
+
+        std::sort(allPaths.begin(), allPaths.end(),
+                  [](const QString &a, const QString &b) {
+                      return QFileInfo(a).baseName().toLower() < QFileInfo(b).baseName().toLower();
+                  });
+
+        for (const QString &path : std::as_const(allPaths)) {
+            QString displayName = QFileInfo(path).baseName();
+            QAction *action = themesMenu->addAction(displayName);
             action->setCheckable(true);
-            action->setData(themeName);
+            action->setData(path);
             themeGroup->addAction(action);
 
-            if (themeName == currentTheme) {
+            if (path == currentThemePath)
                 action->setChecked(true);
-            }
 
-            QString themeFile = stylesheetsPath + "/" + themeName + ".qss";
-            if (!themeWatcher->files().contains(themeFile)) {
-                themeWatcher->addPath(themeFile);
+            if (!path.startsWith(":/") && !path.startsWith("qrc:")) {
+                if (!themeWatcher->files().contains(path))
+                    themeWatcher->addPath(path);
             }
         }
+
+        if (currentThemePath.isEmpty())
+            noneAction->setChecked(true);
 
         connect(themeGroup, &QActionGroup::triggered,
                 this, &LookAndFeelCorePlugin::onThemeSelected);
@@ -279,6 +342,16 @@ private:
         QActionGroup *iconGroup = new QActionGroup(this);
         iconGroup->setExclusive(true);
 
+        QAction *noneAction = iconMenu->addAction("None (System Icons)");
+        noneAction->setCheckable(true);
+        noneAction->setData("");
+        iconGroup->addAction(noneAction);
+
+        if (currentIconTheme.isEmpty())
+            noneAction->setChecked(true);
+
+        iconMenu->addSeparator();
+
         QDir iconDir(iconsPath);
         QStringList userIconThemes = iconDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 
@@ -289,11 +362,9 @@ private:
                 action->setData(themeName);
                 iconGroup->addAction(action);
 
-                if (themeName == currentIconTheme) {
+                if (themeName == currentIconTheme)
                     action->setChecked(true);
-                }
             }
-
             iconMenu->addSeparator();
         }
 
@@ -310,9 +381,8 @@ private:
             if (xdgDir.exists()) {
                 QStringList themes = xdgDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
                 for (const QString &theme : std::as_const(themes)) {
-                    if (!xdgThemes.contains(theme)) {
+                    if (!xdgThemes.contains(theme))
                         xdgThemes.append(theme);
-                    }
                 }
             }
         }
@@ -325,9 +395,8 @@ private:
             action->setData(themeName);
             iconGroup->addAction(action);
 
-            if (themeName == currentIconTheme) {
+            if (themeName == currentIconTheme)
                 action->setChecked(true);
-            }
         }
 #endif
 
@@ -341,35 +410,63 @@ private:
     }
 
     void createNewTheme() {
-        QStackedWidget* stack = m_mainWindow->findChild<QStackedWidget*>("VexStack");
-        if (!stack) {
-            QMessageBox::warning(m_mainWindow, "Error", "Could not find VexStack");
+        QString themeName = QInputDialog::getText(m_mainWindow, "New Theme",
+                                                  "Enter theme name:");
+        if (themeName.isEmpty()) return;
+
+        QString originalName = themeName;
+        if (!themeName.endsWith(".qss", Qt::CaseInsensitive))
+            themeName += ".qss";
+
+        QString themePath = stylesheetsPath + "/" + themeName;
+
+        QFile templateFile(":/vex.qss");
+        if (!templateFile.exists()) {
+            QMessageBox::warning(m_mainWindow, "Error", "Default template :/vex.qss not found!");
             return;
         }
 
-        QTabWidget* tabWidget = stack->findChild<QTabWidget*>("VexTab");
-        if (!tabWidget) {
-            QMessageBox::warning(m_mainWindow, "Error", "Could not find VexTab");
-            return;
+        if (templateFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QFile newFile(themePath);
+            if (newFile.open(QIODevice::WriteOnly)) {
+                newFile.write(templateFile.readAll());
+                newFile.close();
+            }
+            templateFile.close();
         }
 
-        QPlainTextEdit *editor = new QPlainTextEdit(m_mainWindow);
-        editor->setObjectName("VexEditor");
-        editor->setPlainText(getDefaultThemeTemplate());
+        QString fileReqPath = Settings::instance().basePath() + "/.temp/fileReq";
+        QDir().mkpath(Settings::instance().basePath() + "/.temp");
 
-        int index = tabWidget->addTab(editor, "Untitled Theme");
-        tabWidget->setCurrentIndex(index);
+        QFile pathFile(fileReqPath);
+        if (pathFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
+            QTextStream out(&pathFile);
+            out.setEncoding(QStringConverter::Utf8);
+            out << themePath << "\n";
+            pathFile.close();
+        }
 
-        editor->setProperty("isThemeEditor", true);
-        editor->setProperty("themeSavePath", stylesheetsPath);
+        QMetaObject::invokeMethod(m_mainWindow, "openFile",
+                                  Q_ARG(QString, themePath));
 
-        connect(editor->document(), &QTextDocument::contentsChanged,
-                this, &LookAndFeelCorePlugin::onThemeEditorTextChanged);
+        themeWatcher->addPath(themePath);
+        applyTheme(themePath, true);
+        rebuildThemesMenu();
 
-        applyThemeFromContent(editor->toPlainText(), false);
+        QList<QAction*> actions = themesMenu->actions();
+        for (QAction *act : actions) {
+            if (act->data().toString() == themePath) {
+                act->setChecked(true);
+                break;
+            }
+        }
 
-        m_mainWindow->statusBar()->showMessage(
-            "Theme editor opened - save with Ctrl+S to " + stylesheetsPath, 3000);
+        QMessageBox::information(m_mainWindow, "Theme Applied",
+                                 QString(tr("Applied theme: %1\n\n"
+                                            "Save the file (Ctrl+S) to see changes live!\n\n"
+                                            "Theme file created at:\n%2"))
+                                     .arg(originalName)
+                                     .arg(themePath));
     }
 
     void applyTheme(const QString &themeFilePath, bool saveAsCurrent) {
@@ -382,152 +479,102 @@ private:
         QString qssContent = QString::fromUtf8(file.readAll());
         file.close();
 
-        applyThemeFromContent(qssContent, saveAsCurrent);
-    }
+        QMap<QString, QString> vexProps = extractVexProperties(qssContent);
+        applyPropertiesToEditors(vexProps);
 
-    void applyThemeFromContent(const QString &qssContent, bool saveAsCurrent) {
-        parseAndApplyVexProperties(qssContent);
+        QMap<QString, QColor> syntaxColors;
+        QStringList colorKeys = {"comment", "critical", "quote", "keyword", "string"};
+        for (const QString &key : colorKeys) {
+            if (vexProps.contains(key)) {
+                QColor color(vexProps[key]);
+                if (color.isValid())
+                    syntaxColors[key] = color;
+            }
+        }
+
+        if (!syntaxColors.isEmpty()) {
+            SyntaxColorEvent *event = new SyntaxColorEvent(syntaxColors);
+            QApplication::postEvent(m_mainWindow, event);
+        }
+
+        QTabWidget *tabWidget = m_mainWindow->findChild<QTabWidget*>("VexTab");
+        if (tabWidget) {
+            tabWidget->setDocumentMode(false);
+            tabWidget->setElideMode(Qt::ElideNone);
+            QTabBar *tabBar = tabWidget->tabBar();
+            if (tabBar) {
+                tabBar->setExpanding(true);
+                tabBar->setDrawBase(true);
+                tabBar->setStyleSheet("");
+            }
+        }
 
         qApp->setStyleSheet(qssContent);
 
         if (saveAsCurrent) {
-            Settings::instance().setValue("vexThemeProperties",
-                                          QVariant::fromValue(extractVexProperties(qssContent)));
+            Settings::instance().setValue("currentThemePath", themeFilePath);
+            currentThemePath = themeFilePath;
         }
     }
 
     QMap<QString, QString> extractVexProperties(const QString &qssContent) {
         QMap<QString, QString> properties;
-
         QRegularExpression vexBlockRe(R"(VEX#QSS\s*\{([^}]*)\})");
         QRegularExpressionMatch match = vexBlockRe.match(qssContent);
-
-        if (!match.hasMatch()) {
+        if (!match.hasMatch())
             return properties;
-        }
 
         QString vexBlock = match.captured(1);
         QStringList lines = vexBlock.split('\n');
-
         for (const QString &line : std::as_const(lines)) {
             QString trimmed = line.trimmed();
-            if (trimmed.isEmpty() || !trimmed.contains(':')) {
+            if (trimmed.isEmpty() || !trimmed.contains(':'))
                 continue;
-            }
-
             int colonPos = trimmed.indexOf(':');
             QString key = trimmed.left(colonPos).trimmed();
             QString value = trimmed.mid(colonPos + 1).trimmed();
-
-            if (value.endsWith(';')) {
+            if (value.endsWith(';'))
                 value.chop(1);
-            }
             value = value.trimmed();
-
             properties[key] = value;
         }
-
         return properties;
-    }
-
-    void parseAndApplyVexProperties(const QString &qssContent) {
-        QMap<QString, QString> properties = extractVexProperties(qssContent);
-
-        if (properties.isEmpty()) {
-            return;
-        }
-
-        applyPropertiesToEditors(properties);
     }
 
     void applyPropertiesToEditors(const QMap<QString, QString> &properties) {
         QStackedWidget* stack = m_mainWindow->findChild<QStackedWidget*>("VexStack");
         if (!stack) return;
-
         QTabWidget* tabWidget = stack->findChild<QTabWidget*>("VexTab");
         if (!tabWidget) return;
-
         QList<QPlainTextEdit*> editors = tabWidget->findChildren<QPlainTextEdit*>("VexEditor");
-
         for (QPlainTextEdit *editor : std::as_const(editors)) {
-            applyPropertiesToEditor(editor, properties);
-        }
-    }
-
-    void applyPropertiesToEditor(QPlainTextEdit *editor, const QMap<QString, QString> &properties) {
-        if (!editor) return;
-
-        if (properties.contains("line-highlight-color")) {
-            QColor color(properties["line-highlight-color"]);
-            if (color.isValid()) {
-                editor->setProperty("lineHighlightColor", color);
+            if (properties.contains("line-highlight-color")) {
+                QColor color(properties["line-highlight-color"]);
+                if (color.isValid())
+                    editor->setProperty("lineHighlightColor", color);
             }
-        }
-
-        if (properties.contains("line-number-color-fg")) {
-            QColor color(properties["line-number-color-fg"]);
-            if (color.isValid()) {
-                editor->setProperty("lineNumberFg", color);
+            if (properties.contains("line-number-color-fg")) {
+                QColor color(properties["line-number-color-fg"]);
+                if (color.isValid())
+                    editor->setProperty("lineNumberFg", color);
             }
-        }
-
-        if (properties.contains("line-number-color-bg")) {
-            QColor color(properties["line-number-color-bg"]);
-            if (color.isValid()) {
-                editor->setProperty("lineNumberBg", color);
+            if (properties.contains("line-number-color-bg")) {
+                QColor color(properties["line-number-color-bg"]);
+                if (color.isValid())
+                    editor->setProperty("lineNumberBg", color);
             }
+            editor->viewport()->update();
         }
-
-        if (properties.contains("comment")) {
-            QColor color(properties["comment"]);
-            if (color.isValid()) {
-                editor->setProperty("syntaxComment", color);
-            }
-        }
-
-        if (properties.contains("critical")) {
-            QColor color(properties["critical"]);
-            if (color.isValid()) {
-                editor->setProperty("syntaxCritical", color);
-            }
-        }
-
-        if (properties.contains("quote")) {
-            QColor color(properties["quote"]);
-            if (color.isValid()) {
-                editor->setProperty("syntaxQuote", color);
-            }
-        }
-
-        if (properties.contains("keyword")) {
-            QColor color(properties["keyword"]);
-            if (color.isValid()) {
-                editor->setProperty("syntaxKeyword", color);
-            }
-        }
-
-        if (properties.contains("string")) {
-            QColor color(properties["string"]);
-            if (color.isValid()) {
-                editor->setProperty("syntaxString", color);
-            }
-        }
-
-        editor->viewport()->update();
     }
 
     void updateIconSearchPaths() {
-        if (currentIconTheme.isEmpty()) {
-            return;
-        }
-
+        if (currentIconTheme.isEmpty()) return;
         QString userThemePath = iconsPath + "/" + currentIconTheme;
         if (QDir(userThemePath).exists()) {
             QIcon::setThemeSearchPaths(QStringList() << iconsPath);
             QIcon::setThemeName(currentIconTheme);
             return;
         }
-
 #if !defined(Q_OS_WIN) && !defined(Q_OS_MAC)
         QIcon::setThemeName(currentIconTheme);
 #endif
@@ -541,93 +588,20 @@ private:
             QApplication::setStyle(QStyleFactory::create(savedStyle));
         }
 
-        currentTheme = settings.get<QString>("currentTheme");
-        if (!currentTheme.isEmpty()) {
-            QString themeFile = stylesheetsPath + "/" + currentTheme + ".qss";
-            if (QFile::exists(themeFile)) {
-                applyTheme(themeFile, false);
+        currentThemePath = settings.get<QString>("currentThemePath");
+        if (!currentThemePath.isEmpty() && QFile::exists(currentThemePath)) {
+            applyTheme(currentThemePath, false);
+        } else {
+
+            QString defaultTheme = ":/vex.qss";
+            if (QFile::exists(defaultTheme)) {
+                applyTheme(defaultTheme, true);
             }
         }
 
         currentIconTheme = settings.get<QString>("currentIconTheme");
-        if (!currentIconTheme.isEmpty()) {
+        if (!currentIconTheme.isEmpty())
             updateIconSearchPaths();
-        }
-    }
-
-    QString getDefaultThemeTemplate() {
-        return R"(/* Vex Theme Template
- * Save with Ctrl+S - will prompt to save in theme directory
- * File will automatically get .qss extension
- */
-
-VEX#QSS {
-    line-highlight-color: rgba(0, 60, 30, 102);
-    line-number-color-fg: rgb(100, 180, 100);
-    line-number-color-bg: rgb(30, 30, 30);
-    comment: rgb(128, 128, 128);
-    critical: rgb(255, 255, 255);
-    quote: rgb(0, 255, 0);
-    keyword: rgb(135, 206, 250);
-    string: rgb(255, 165, 0);
-}
-
-/* Standard QSS below */
-
-QMainWindow {
-    background-color: #1e1e1e;
-    color: #d4d4d4;
-}
-
-QPlainTextEdit {
-    background-color: #1e1e1e;
-    color: #d4d4d4;
-    selection-background-color: #264f78;
-    selection-color: #ffffff;
-}
-
-QMenuBar {
-    background-color: #2d2d30;
-    color: #cccccc;
-}
-
-QMenuBar::item:selected {
-    background-color: #3e3e42;
-}
-
-QMenu {
-    background-color: #2d2d30;
-    color: #cccccc;
-    border: 1px solid #454545;
-}
-
-QMenu::item:selected {
-    background-color: #3e3e42;
-}
-
-QStatusBar {
-    background-color: #007acc;
-    color: #ffffff;
-}
-
-QTabWidget::pane {
-    border: 1px solid #454545;
-    background-color: #252526;
-}
-
-QTabBar::tab {
-    background-color: #2d2d30;
-    color: #969696;
-    padding: 8px 16px;
-    border: 1px solid #454545;
-}
-
-QTabBar::tab:selected {
-    background-color: #1e1e1e;
-    color: #ffffff;
-    border-bottom-color: #1e1e1e;
-}
-)";
     }
 };
 

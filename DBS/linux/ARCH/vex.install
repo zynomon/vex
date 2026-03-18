@@ -1,0 +1,11 @@
+#!/bin/bash
+
+
+
+post_remove() {
+    rm -rf /usr/lib/vex
+    rm -rf /usr/bin/vex
+    echo "---------------------------------------------------------------------------------------------------<!>"
+ echo " remove config or not its upto you ,  rm -ri /home/*/.vex/"
+
+}

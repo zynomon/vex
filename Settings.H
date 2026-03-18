@@ -39,6 +39,7 @@ public:
     }
 
     static QIcon resolveIcon(const QString &baseName) {
+
         QIcon icon = QIcon::fromTheme(baseName);
         if (!icon.isNull())
         return icon;

@@ -191,8 +191,7 @@ private:
     ColorPalette palette;
 
     void resumeBlock(const QString &line, const SyntaxDef &syntax, int state) {
-        // Find which block we're in
-        int blockIdx = state - 1;
+       int blockIdx = state - 1;
 
         if (blockIdx < 0 || blockIdx >= syntax.blockMatches.size()) {
             setCurrentBlockState(-1);
