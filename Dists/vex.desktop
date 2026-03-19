@@ -1,0 +1,22 @@
+[Desktop Entry]
+Type=Application
+Version=4.0
+Name=Vex
+Name[bn]=ভেক্স
+GenericName=Text Editor
+GenericName[bn]=টেক্সট এডিটর
+Comment=Vex, a lightweight, fast text editor
+Comment[bn]=ভেক্স, টেক্সট এডিটর
+Exec=vex -f %F
+Icon=vex
+Terminal=false
+StartupNotify=true
+StartupWMClass=vex
+Categories=Development;TextEditor;Qt;
+MimeType=text/plain;text/x-chdr;text/x-csrc;text/x-c++hdr;text/x-c++src;text/x-python;text/x-java;text/x-shellscript;text/x-makefile;text/x-cmake;text/x-markdown;text/x-readme;text/x-log;text/x-diff;text/x-patch;text/x-config;text/x-ini;text/x-properties;text/x-yaml;text/x-json;text/x-xml;text/x-html;text/x-css;text/x-javascript;text/x-typescript;text/x-rust;text/x-go;text/x-php;text/x-perl;text/x-ruby;text/x-lua;text/x-sql;text/x-tex;text/x-bibtex;text/x-po;
+Keywords=editor;text;code;qt;C++;lightweight;vim;
+Keywords[bn]=এডিটর;
+X-GNOME-FullName=Vex Text Editor
+X-GNOME-FullName[bn]=ভেক্স টেক্সট এডিটর
+X-GNOME-SingleWindow=false
+X-MultipleArgs=true

@@ -583,6 +583,10 @@ private:
     void loadPreferences() {
         Settings &settings = Settings::instance();
 
+#ifdef Q_OS_WIN
+        Settings::instance().setValue("qtStyle", "Fusion");
+#endif
+
         QString savedStyle = settings.get<QString>("qtStyle");
         if (!savedStyle.isEmpty() && QStyleFactory::keys().contains(savedStyle, Qt::CaseInsensitive)) {
             QApplication::setStyle(QStyleFactory::create(savedStyle));

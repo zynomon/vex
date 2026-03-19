@@ -19,12 +19,9 @@ target_include_directories(VexCore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_include_directories(SyntaxCore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 target_include_directories(LookAndFeelCore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
-if(UNIX AND NOT APPLE)
-    set_target_properties(VexCore SyntaxCore LookAndFeelCore PROPERTIES
-        PREFIX ""  
-
-    )
-endif()
+set_target_properties(VexCore SyntaxCore LookAndFeelCore PROPERTIES
+     PREFIX ""
+)
 
 if(WIN32 OR APPLE)
     set_target_properties(VexCore SyntaxCore LookAndFeelCore PROPERTIES

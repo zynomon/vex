@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(vex VERSION 4.1 LANGUAGES CXX)
+project(vex VERSION 4.0 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -15,47 +15,49 @@ qt_add_executable(vex
     main.cxx
     Plugvex.H
     Settings.H
-    $<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/DBS/win/ico.qrc>
-    $<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/DBS/mac/icns.qrc>
+    $<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/Dists/win/ico.qrc>
+    $<$<PLATFORM_ID:Windows>:${CMAKE_CURRENT_SOURCE_DIR}/Dists/win/vex.rc>
+    $<$<PLATFORM_ID:Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/Dists/mac/icns.qrc>
 )
 
 target_link_libraries(vex PRIVATE
     Qt6::Core
     Qt6::Widgets
-    VexCore
-    SyntaxCore
-    LookAndFeelCore
 )
 
 include(GNUInstallDirs)
 
 install(TARGETS vex
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    BUNDLE DESTINATION .  
+    BUNDLE DESTINATION .
 
 )
 
-if(WIN32 OR APPLE)
-
+if(WIN32)
     install(TARGETS VexCore SyntaxCore LookAndFeelCore
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}  
-
-        LIBRARY DESTINATION ${CMAKE_INSTALL_BINDIR}  
-
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
-else()
+elseif(APPLE)
 
     install(TARGETS VexCore SyntaxCore LookAndFeelCore
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/vex
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+elseif(UNIX AND NOT APPLE)
+
+    install(FILES
+        ${CMAKE_BINARY_DIR}/Core/VexCore.so
+        ${CMAKE_BINARY_DIR}/Core/SyntaxCore.so
+        ${CMAKE_BINARY_DIR}/Core/LookAndFeelCore.so
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/vex
     )
 endif()
 
 if(UNIX AND NOT APPLE)
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/DBS/vex.desktop
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Dists/vex.desktop
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications
     )
 
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/DBS/vex.svg
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/Dists/vex.svg
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps
     )
 endif()
@@ -69,6 +71,6 @@ endif()
 if(APPLE)
     set_target_properties(vex PROPERTIES
         MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/DBS/mac/Info.plist
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Dists/mac/Info.plist
     )
 endif()

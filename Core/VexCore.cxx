@@ -2156,10 +2156,6 @@ public:
     }
     bool initialize(MainWindow* window, Settings* settings, CmdLine& cmdLine) {
         QMainWindow *mainWin = reinterpret_cast<QMainWindow*>(window);
-        QPalette pal = mainWin->palette();
-        pal.setColor(QPalette::Window, Qt::black);
-        mainWin->setPalette(pal);
-        mainWin->setAutoFillBackground(true);
 
         cmdLine.addCommand({{"f", "file"}, "Open file(s) at startup", ""});
 
@@ -2170,7 +2166,7 @@ public:
         QFile requestFile(requestFilePath);
 
         if (requestFile.exists()) {
-          QTimer::singleShot(0, [&cmdLine, requestFilePath]() {
+            QTimer::singleShot(0, [&cmdLine, requestFilePath]() {
                 QStringList filesToOpen = cmdLine.flagArgs("f");
                 if (!filesToOpen.isEmpty()) {
                     QFile requestFile(requestFilePath);
@@ -2221,5 +2217,4 @@ public:
     }
 
 };
-
 #include "VexCore.moc"
