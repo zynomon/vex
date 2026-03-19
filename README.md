@@ -4,6 +4,22 @@ With a unique architecture and lightweight and faster experience in mind
 
 ---
 
+# Download
+Current version is 4.1 ( Cytoplasm )
+you can install it to following systems
+Windows:-
+Debian:-
+RPM:-
+GNU/Linux (Tar.gz):-
+
+
+# Features
+
+## 
+
+##
+
+##
 
 ```mermaid
 graph TD
@@ -18,5 +34,7 @@ graph TD
   
   Y --> X
   X --> e(Run)
-
 ```
+
+# Build
+
