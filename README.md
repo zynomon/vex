@@ -1,4 +1,4 @@
-# #  ![vex](https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14) Vex
+##  ![vex](https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14) Vex
 is an extensive Free Crossplatform Qt C++ Text Editor.
 With a unique architecture and lightweight and faster experience in mind
 
