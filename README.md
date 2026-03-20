@@ -2,6 +2,9 @@
 is an extensive Free Crossplatform Qt C++ Text Editor.
 With a unique architecture and lightweight and faster experience in mind
 
+<img width="904" height="649" alt="image" src="https://github.com/user-attachments/assets/b07a1267-cf5d-4fbf-9914-271edf7207fd" />
+
+
 ---
 
 # Download
