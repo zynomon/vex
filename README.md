@@ -6,20 +6,19 @@ With a unique architecture and lightweight and faster experience in mind
 
 # Download
 Current version is 4.1 ( Cytoplasm )
-you can install it to following systems
-Windows:-
-Debian:-
-RPM:-
-GNU/Linux (Tar.gz):-
+for download guide check
 
+https://github.com/zynomon/vex/wiki/Download
+
+https://github.com/zynomon/vex/wiki/Compile
+
+https://github.com/zynomon/vex/wiki/Install
 
 # Features
+## Find & Replace
+<img width="529" height="331" alt="image" src="https://github.com/user-attachments/assets/342ab0ba-c9e0-46ea-a6b7-440fa2c0ee71" />
+Case-sensitive search, Whole word matching , Replace one or all Search wraps around document
 
-## 
-
-##
-
-##
 
 ```mermaid
 graph TD
