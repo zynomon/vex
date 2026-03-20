@@ -1,3 +1,3 @@
 #!/bin/bash
 
-echo "Thanks for trying Vex"
+echo "\nThanks for trying Vex\n"
