@@ -1,15 +1,9 @@
 Lets get started;
 ----------------------
-we dont support Windows for now,  - building for mac and bsd , arch deriatives Are experimental and not made for real package creation now, . only RPM and DEB is tested; and TGZ eg. tar.gz ( compressed at 22 zstd ) is too available
+ building for mac is experimental and not made for real package creation now, . only Freebsd , Arch, RPM and DEB is tested; and TGZ eg. tar.gz ( compressed at 22 zstd ) and Appimage is too available
 To build you need to type this in your terminal
  ```bash
- 
- 
- 
                                   "./build"
-
-
-
 ```
 
 and hit enter it would surely ask for what to do;
@@ -43,5 +37,8 @@ so as i want to create all package in release without wasting any time on onboar
 and 8 is "all of above" of DBS 
 so its easy to make some combinations and run this script.
 
-If you face any problems Contact me at <zynomon@proton.me> or create an issue here:- https://github.com/zynomon/onu/issues
-Alternatively this project can be found on https://codeberg.org/zynomon/onu
+If you face any problems Contact me at <zynomon@proton.me> or create an issue here:- https://github.com/zynomon/vex/issues
+
+# As For windows
+check win/windows.bat
+because windows is not posixy i had to handle that in a different way
