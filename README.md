@@ -23,7 +23,6 @@ Current version is 4.1 ( Cytoplasm )
 
 
 
-
 https://github.com/zynomon/vex/wiki/Install
 Its avilable for windows, FreeBSD, And any Linux Distro ( APPIMAGE +  DEB + RPM + TARGZ ),
 Except Mac for now.
