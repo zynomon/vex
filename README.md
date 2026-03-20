@@ -12,15 +12,14 @@ With a unique Plugin architecture, lightweight and faster experience in mind
 Current version is 4.1 ( Cytoplasm )
 | Platform | Download |
 |----------|----------|
-| [![Windows](https://custom-icon-badges.demolab.com/badge/Windows-0078D6?logo=windows11&logoColor=white)](#) Installer | [`Vex_4.1_Setup.exe`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/Vex_4.1_Setup.exe) (16.1 MB) |
-| [![Windows](https://custom-icon-badges.demolab.com/badge/Windows-0078D6?logo=windows11&logoColor=white)](#) Portable | [`vex_4.1_Cytoplasm_WIN32.7z`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm_WIN32.7z) (10.8 MB) |
-| [![Windows](https://custom-icon-badges.demolab.com/badge/Windows-3C873A?logo=windows11&logoColor=white)](#) Windows Portable (7z) | [`vex_4.1_Cytoplasm_WIN32.7z`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm_WIN32.7z) (10.8 MB) |
+| [![Windows](https://custom-icon-badges.demolab.com/badge/-0078D6?logo=windows11&logoColor=white)](#) Windows Installer | [`Vex_4.1_Setup.exe`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/Vex_4.1_Setup.exe) (16.1 MB) |
+| [![Windows](https://custom-icon-badges.demolab.com/badge/-3C873A?logo=windows11&logoColor=white)](#) Windows Portable (7z) | [`vex_4.1_Cytoplasm_WIN32.7z`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm_WIN32.7z) (10.8 MB) |
 | [![Linux](https://img.shields.io/badge/-FCC624?logo=linux&logoColor=black&label=)](#) AppImage | [`vex_4.1_Cytoplasm_x86_64.AppImage`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm_x86_64.AppImage) (3.94 MB) |
 | [![Debian](https://img.shields.io/badge/-A81D33?logo=debian&logoColor=white&label=)](#) Debian/Ubuntu (.deb) | [`vex_4.1_Cytoplasm_x86_64.deb`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm_x86_64.deb) (134 KB) |
 | [![RPM](https://img.shields.io/badge/-FC1E2C?logo=speedtest&logoColor=white&label=)](#) Fedora/RHEL (.rpm) | [`vex_4.1_Cytoplasm_x86_64.rpm`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm_x86_64.rpm) (213 KB) |
 | [![FreeBSD](https://img.shields.io/badge/-AB2B28?logo=freebsd&logoColor=white&label=)](#) FreeBSD Package | [`vex-4.1_Cytoplasm.pkg`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex-4.1_Cytoplasm.pkg) (546 B) |
 | [![FreeBSD](https://img.shields.io/badge/-3C873A?logo=freebsd&logoColor=white&label=)](#) FreeBSD Source | [`vex_4.1_Cytoplasm_FREEBSD.tar.zst`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm_FREEBSD.tar.zst) (193 KB) |
-| [![Source](https://img.shields.io/badge/-3C873A?logo=sourceforge&logoColor=white&label=)](#) Source Tarball | [`vex_4.1_Cytoplasm.tar.zst`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm.tar.zst) (145 KB) |
+| [![Source](https://img.shields.io/badge/-3C873A?logo=sourceforge&logoColor=white&label=)](#) GNU/Linux Source Tarball | [`vex_4.1_Cytoplasm.tar.zst`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm.tar.zst) (145 KB) |
 
 
 
