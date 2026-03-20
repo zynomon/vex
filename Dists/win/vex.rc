@@ -1,1 +1,17 @@
 IDI_ICON1 ICON "vex.ico"
+
+1 VERSIONINFO
+FILEVERSION     4,1,0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "github.com/zynomon/vex"
+            VALUE "FileDescription", "Vex Text Editor"
+            VALUE "FileVersion", "4.1"
+            VALUE "ProductName", "Vex"
+            VALUE "ProductVersion", "4.1"
+        END
+    END
+END

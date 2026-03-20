@@ -2154,7 +2154,7 @@ public:
         metadata.importance = PluginMetadata::Xylem;
         return metadata;
     }
-    bool initialize(MainWindow* window, Settings* settings, CmdLine& cmdLine) {
+    bool initialize(MainWindow* window, Settings* settings, CmdLine& cmdLine) override {
         QMainWindow *mainWin = reinterpret_cast<QMainWindow*>(window);
 
         cmdLine.addCommand({{"f", "file"}, "Open file(s) at startup", ""});
