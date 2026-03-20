@@ -44,8 +44,9 @@ open by name gives the feeling of ``vi ~/.bashrc`` if file doesnt exists it crea
 
 
 Vex uses an independent syntax definition Language for defining syntax, its made for coloring keywords heriodics and delimiters are supported.
-written Entirely in c++
-
+written Entirely in c++ check 
+https://github.com/zynomon/vex/wiki/Syntax 
+to know more
 ## Plugin system
 instead of like normal application   click and run , we used plugin system
 
