@@ -1,6 +1,7 @@
-##  ![vex](https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14) Vex
-is an extensive Free Crossplatform Qt C++ Text Editor.
-With a unique architecture and lightweight and faster experience in mind
+##  ![vex](https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14) Vex <sub>4.1</sub>
+
+Vex is an extensive Free Crossplatform C++ Text Editor.
+With a unique Plugin architecture, lightweight and faster experience in mind
 
 <img width="904" height="649" alt="image" src="https://github.com/user-attachments/assets/b07a1267-cf5d-4fbf-9914-271edf7207fd" />
 
@@ -14,8 +15,7 @@ for download guide check
 https://github.com/zynomon/vex/wiki/Download
 https://github.com/zynomon/vex/wiki/Install
 Its avilable for windows, FreeBSD, And any Linux Distro ( APPIMAGE +  DEB + RPM + TARGZ ),
-
-
+Except Mac for now.
 
 # Features
 
