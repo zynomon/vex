@@ -1,8 +1,9 @@
 ##  ![vex](https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14) Vex <sub>4.1</sub>
-![Tag](https://img.shields.io/github/v/tag/zynomon/vex?style=for-the-badge)
-![Stars](https://img.shields.io/github/stars/zynomon/vex?style=for-the-badge)
-![Watchers](https://img.shields.io/github/watchers/zynomon/vex?style=for-the-badge)
-![Contributors](https://img.shields.io/github/contributors/zynomon/vex?style=for-the-badge)
+![Tag](https://img.shields.io/github/v/tag/zynomon/vex?style=for-the-badge&labelColor=000000&color=0F3B0F)
+![Contributors](https://img.shields.io/github/contributors/zynomon/vex?style=for-the-badge&labelColor=000000&color=0F3B0F)
+![Last commit](https://img.shields.io/github/last-commit/zynomon/vex?style=for-the-badge&labelColor=000000&color=0F3B0F)
+![Issues](https://img.shields.io/github/issues/zynomon/vex?style=for-the-badge&labelColor=000000&color=0F3B0F)
+![Downloads](https://img.shields.io/github/downloads/zynomon/vex/total?style=for-the-badge&labelColor=000000&color=0F3B0F)
 
 Vex is an extensive Free Crossplatform C++ Text Editor.
 With a unique Plugin architecture, lightweight and faster experience in mind
