@@ -87,6 +87,7 @@ https://github.com/zynomon/vex/wiki/Compile
 # Fork
 Vex is an opensource project its easy to be forked with its Build system 
 <img width="814" height="274" alt="6u2XrHz6MQ_fast701b" src="https://github.com/user-attachments/assets/a4bd52af-25cf-45f5-8d90-e5312117e891" />
+For forking check [ https://github.com/zynomon/vex/wiki/Compile](https://github.com/zynomon/vex/wiki/Compile#creating-distribution-packages)
 
 
 Script and Batch files were made to save times  instead of wasting on building for other oses
