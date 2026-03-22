@@ -22,7 +22,7 @@ Current version is 4.1 ( Cytoplasm )
 | [![FreeBSD](https://img.shields.io/badge/-3C873A?logo=freebsd&logoColor=white&label=)](#) FreeBSD Zstd Tarball | [`vex_4.1_Cytoplasm_FREEBSD.tar.zst`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm_FREEBSD.tar.zst) (193 KB) |
 | [![Source](https://img.shields.io/badge/-3C873A?logo=sourceforge&logoColor=white&label=)](#) GNU/Linux Zstd Tarball | [`vex_4.1_Cytoplasm.tar.zst`](https://github.com/zynomon/vex/releases/download/4.1-cytoplasm/vex_4.1_Cytoplasm.tar.zst) (145 KB) |
 
-
+# For Installing check:
 
 https://github.com/zynomon/vex/wiki/Install
 Its avilable for windows, FreeBSD, And any Linux Distro ( APPIMAGE +  DEB + RPM + TARGZ ),
@@ -81,7 +81,6 @@ graph TD
 
 Vex uses Qt framework so surely its possible to be compiled in any linux distro , MAC, newer windows versions ( VISTA ONWARDS 11 ), 
 vex doesnt relies on any other libraries making the build system take lesser space Than an entire chromium engine, 
-
 https://github.com/zynomon/vex/wiki/Compile
 
 # Fork
