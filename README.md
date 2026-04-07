@@ -46,7 +46,7 @@ Keybind : ``CRTL+F``
 ## Open by name
 open by name gives the feeling of 
 ```bash
- ~/.bashrc # this opens a file named  bashrc in  vi 
+ vi ~/.bashrc # this opens a file named  bashrc in  vi 
 ``` 
 if file doesnt exists it creates it
 you  have to specify the path of which file you want to open.
