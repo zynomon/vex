@@ -44,8 +44,13 @@ Case-sensitive search, Whole word matching , Replace one or all Search wraps aro
 Keybind : ``CRTL+F``
 
 ## Open by name
-open by name gives the feeling of ``vi ~/.bashrc`` if file doesnt exists it creates it you  have to specify the path of which file you want to open although its not that advanced 
-
+open by name gives the feeling of 
+```bash
+ ~/.bashrc # this opens a file named  bashrc in  vi 
+``` 
+if file doesnt exists it creates it
+you  have to specify the path of which file you want to open.
+it has  auto-completion to help reduce typos. 
 
 
 ![nJCtlZBHQZ_fast723b](https://github.com/user-attachments/assets/93bcefbc-4ba9-4921-8c27-d98a79ea6ae4)
