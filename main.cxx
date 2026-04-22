@@ -14,11 +14,11 @@ public:
         : QMainWindow(parent)
     {
         setWindowTitle("Vex :/");
-        setWindowIcon(Settings::resolveIcon("vex"));
+        setWindowIcon(Settings::instance().resolveIcon("vex"));
         resize(1000, 700);
 
         m_loadingIcon = new QLabel(this);
-        m_loadingIcon->setPixmap(Settings::resolveIcon("vex").pixmap(200, 200));
+        m_loadingIcon->setPixmap(Settings::instance().resolveIcon("vex").pixmap(200, 200));
         m_loadingIcon->setAlignment(Qt::AlignCenter);
         setCentralWidget(m_loadingIcon);
     }

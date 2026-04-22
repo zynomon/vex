@@ -16,7 +16,7 @@ set "RESET=%ESC%[0m"
 
 chcp 65001 >nul
 
-echo %GREEN_BG%▀████▀        ▀███▀                        %RESET%
+echo %GREEN_BG%▀████▀        ▀███▀                         %RESET%
 echo %GREEN_BG%  ▀██         ▄█                           %RESET%
 echo %GREEN_BG%   ██▄      ▄█        ▄▄█▀██    ▀██▀   ▀██▀%RESET%
 echo %GREEN_BG%   ██▄    █▀        ▄█▀    ██     ▀██ ▄█▀  %RESET%
@@ -27,7 +27,7 @@ echo %RESET%
 
 echo %DG_WHITE%Working directory: %CD%%RESET%
 echo.
-echo %DG_WHITE%[1/5] Detecting Qt installation...%RESET%
+echo %DG_WHITE%[1/5]  Detecting Qt installation...%RESET%
 set "QT_ROOT="
 set "QT_DIR="
 
@@ -277,9 +277,9 @@ if %errorlevel% equ 0 (
     echo.
     echo %DG_WHITE%_______________________________________^<^!^>%RESET%
     echo %DG_WHITE%.%RESET%
-    echo %DG_WHITE%Success! Vex_4.1_Setup.exe created%RESET%
+    echo %DG_WHITE%Success! Vex_4.2_Setup.exe created%RESET%
     echo %DG_WHITE%_______________________________________________/%RESET%
-    copy "Vex_4.1_Setup.exe" "..\..\Packages\" >nul
+    copy "Vex_4.2_Setup.exe" "..\..\Packages\" >nul
 ) else (
     echo %RED%[ERROR] NSIS compilation failed%RESET%
 )

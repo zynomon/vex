@@ -225,7 +225,17 @@ cmdLine.addCommand({{"d", "debug"}, "Enable debug mode", ""});
         paths << QCoreApplication::applicationDirPath();
 
 #if defined(Q_OS_UNIX) && !defined(Q_OS_DARWIN)
+        QByteArray ldLibraryPath = qgetenv("LD_LIBRARY_PATH");
+        if (!ldLibraryPath.isEmpty()) {
+            QStringList ldDirs = QString::fromLocal8Bit(ldLibraryPath).split(':');
+            for (const QString& dir : ldDirs) {
+                if (!dir.isEmpty()) {
+                    paths << dir + "/vex";
+                }
+            }
+        }
         paths << "/usr/lib/vex";
+        paths << "/usr/local/lib/vex";
 #endif
 
         QList<CorePlugin*> xylem, phloem, simple;

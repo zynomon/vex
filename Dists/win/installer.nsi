@@ -1,8 +1,8 @@
 !define APPNAME "Vex"
-!define VERSION "4.1"
+!define VERSION "4.2"
 !define PUBLISHER "Zynomon Aelius"
 !define VENDOR "Zynomon Aelius"
-!define SUMMARY "Extensive Qt C++ text editor"
+!define SUMMARY "Extensive text editor"
 !define LICENSE "Apache 2.0"
 !define URL "https://github.com/zynomon/vex"
 !define REGPATH_UNINSTSUBKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}"
@@ -80,7 +80,7 @@ Function WelcomePre
 
   ReadRegStr $0 HKCU "${PREF_REG_PATH}" "InstallMode"
   ${If} $0 != ""
-    Abort 
+    Abort
 
   ${EndIf}
 FunctionEnd
@@ -259,9 +259,9 @@ FunctionEnd
 !define MUI_PAGE_CUSTOMFUNCTION_PRE WelcomePre
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "LICENSE"
-Page custom OptionsPage OptionsPageLeave          
+Page custom OptionsPage OptionsPageLeave
 
-Page custom PathPage PathPageLeave                
+Page custom PathPage PathPageLeave
 
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -500,7 +500,7 @@ Section "Uninstall"
   Call un.RefreshIconCache
 SectionEnd
 
-VIProductVersion "4.1.0.0"
+VIProductVersion "4.2.0.0"
 VIAddVersionKey "ProductName" "${APPNAME}"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "ProductVersion" "${VERSION}"

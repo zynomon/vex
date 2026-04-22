@@ -26,7 +26,7 @@
      inkscape:document-units="px"
      inkscape:zoom="1.1425781"
      inkscape:cx="255.5624"
-     inkscape:cy="298.01026"
+     inkscape:cy="265.62736"
      inkscape:window-width="1440"
      inkscape:window-height="829"
      inkscape:window-x="-8"
@@ -103,7 +103,7 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"><rect
-       style="fill:url(#linearGradient6);stroke:#ffffff;stroke-width:0.716;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:url(#linearGradient6);stroke:#ffffff;stroke-width:1;stroke-dasharray:none;stroke-opacity:1"
        id="rect2"
        width="386.73596"
        height="124.57172"
@@ -111,7 +111,7 @@
        y="88.28952"
        rx="0.60724103"
        ry="0.27315623" /><rect
-       style="fill:url(#linearGradient3);stroke:url(#linearGradient4);stroke-width:0.892077;stroke-dasharray:none"
+       style="fill:url(#linearGradient3);stroke:url(#linearGradient4);stroke-width:3.09199963;stroke-dasharray:none"
        id="rect1"
        width="441.11694"
        height="339.39563"

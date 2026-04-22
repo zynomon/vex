@@ -3,7 +3,7 @@
 *                         Apache 2.0                           *
 *     Copyright Zynomon aelius <zynomon@proton.me>  2026       *
 *               Project         :        Vex                   *
-*               Version         :        4.0 (Cytoplasm)       *
+*               Version         :        4.2 (Cytoplasm)       *
 *                                                              *
 *                                                              *
 ****************************************************************/
@@ -62,24 +62,6 @@ struct SyntaxDef {
     QList<BlockMatch> blockMatches;
 };
 
-class ColorPalette {
-public:
-    QColor comment{128, 128, 128};
-    QColor critical{255, 255, 255};
-    QColor quote{0, 255, 0};
-    QColor keyword{135, 206, 250};
-    QColor string{255, 165, 0};
-
-    QColor lookup(const QString &name) const {
-        if (name == "comment") return comment;
-        if (name == "critical") return critical;
-        if (name == "quote") return quote;
-        if (name == "keyword") return keyword;
-        if (name == "string") return string;
-        return QColor(name);
-    }
-};
-
 class TextPainter : public QSyntaxHighlighter {
     Q_OBJECT
 
@@ -93,6 +75,7 @@ public:
     void activate(const QString &lang, const QString &fileContent) {
         currentLang.clear();
         definitions.clear();
+        m_syntaxContent = fileContent;
 
         if (lang.isEmpty() || fileContent.isEmpty()) {
             active = false;
@@ -112,18 +95,11 @@ public:
         rehighlight();
     }
 
-    void updateColors(const ColorPalette &pal) {
-        palette = pal;
-
-        for (auto &def : definitions) {
-            for (auto &em : def.exactMatches) {
-                updateFormatColors(em.style);
-            }
-            for (auto &bm : def.blockMatches) {
-                updateFormatColors(bm.style);
-            }
+    void refreshColors() {
+        if (!m_syntaxContent.isEmpty() && !currentLang.isEmpty()) {
+            definitions.clear();
+            readSyntaxFile(m_syntaxContent);
         }
-
         rehighlight();
     }
 
@@ -187,11 +163,11 @@ protected:
 private:
     bool active;
     QString currentLang;
+    QString m_syntaxContent;
     QMap<QString, SyntaxDef> definitions;
-    ColorPalette palette;
 
     void resumeBlock(const QString &line, const SyntaxDef &syntax, int state) {
-       int blockIdx = state - 1;
+        int blockIdx = state - 1;
 
         if (blockIdx < 0 || blockIdx >= syntax.blockMatches.size()) {
             setCurrentBlockState(-1);
@@ -243,12 +219,12 @@ private:
             if (line.startsWith("File =")) {
                 QString rest = line.mid(6).trimmed();
                 QStringList parts = rest.split("&&");
-                for (QString ext : parts) {
-                    ext = ext.trimmed();
-                    if (!ext.startsWith('.')) {
-                        ext = "." + ext;
+                for (const QString &e : std::as_const(parts)) {
+                    QString trimmedExt = e.trimmed();
+                    if (!trimmedExt.startsWith('.')) {
+                        trimmedExt = "." + trimmedExt;
                     }
-                    current.extensions.append(ext);
+                    current.extensions.append(trimmedExt);
                 }
                 continue;
             }
@@ -256,7 +232,7 @@ private:
             if (line.startsWith("Sw =")) {
                 QString rest = line.mid(4).trimmed();
                 QStringList parts = rest.split("&&");
-                for (QString pat : parts) {
+                for (const QString &pat : std::as_const(parts)) {
                     current.contentStarts.append(pat.trimmed());
                 }
                 continue;
@@ -271,8 +247,8 @@ private:
 
                 QStringList patterns = left.split("&&");
 
-                for (QString pat : patterns) {
-                    pat = pat.trimmed();
+                for (const QString &pat : std::as_const(patterns)) {
+                    QString trimmedPat = pat.trimmed();
 
                     if (pat.contains("+ES'") && pat.contains("'ES-")) {
                         QString inside = extractInside(pat, "+ES'", "'ES-");
@@ -294,7 +270,7 @@ private:
                             bm.style = fmt;
                             bm.id = blockIdCounter++;
 
-                         bm.endsAtNewline = pat.contains("+HE''HE-");
+                            bm.endsAtNewline = pat.contains("+HE''HE-");
 
                             bm.capturesDelimiter = (opener.contains("delem") || closer.contains("delem"));
 
@@ -341,7 +317,22 @@ private:
         for (const QString &part : std::as_const(parts)) {
             if (part.startsWith("color:")) {
                 QString colorName = part.mid(6);
-                QColor color = palette.lookup(colorName);
+                Settings &s = Settings::instance();
+                QString colorStr = s.get<QString>(QString("theme/") + colorName + "Color", QString());
+                QColor color;
+                if (!colorStr.isEmpty()) {
+                    color = QColor(colorStr);
+                    if (!color.isValid()) {
+                        s.remove(QString("theme/") + colorName + "Color");
+                    }
+                }
+                if (!color.isValid()) {
+                    if (colorName == "comment") color = QColor(128, 128, 128);
+                    else if (colorName == "critical") color = QColor(255, 255, 255);
+                    else if (colorName == "quote") color = QColor(0, 255, 0);
+                    else if (colorName == "keyword") color = QColor(135, 206, 250);
+                    else if (colorName == "string") color = QColor(255, 165, 0);
+                }
                 if (color.isValid()) {
                     fmt.setForeground(QBrush(color));
                 }
@@ -363,9 +354,6 @@ private:
         }
 
         return fmt;
-    }
-
-    void updateFormatColors(QTextCharFormat &fmt) {
     }
 };
 
@@ -407,6 +395,11 @@ public:
         watcher = new QFileSystemWatcher(this);
         watcher->addPath(syntaxDir);
 
+        QString configPath = Settings::instance().configFilePath();
+        if (QFile::exists(configPath)) {
+            watcher->addPath(configPath);
+        }
+
         connect(watcher, &QFileSystemWatcher::directoryChanged,
                 this, &SyntaxCorePlugin::onDirectoryChanged);
         connect(watcher, &QFileSystemWatcher::fileChanged,
@@ -425,7 +418,7 @@ public:
 
         attachToEditors();
 
-        mainWin->statusBar()->showMessage("Syntax highlighting ready", 2000);
+        mainWin->statusBar()->showMessage("Syntax highlighting..", 2000);
 
         return true;
     }
@@ -452,7 +445,7 @@ private slots:
             QString detected = detectLanguage(currentTab);
             if (!detected.isEmpty() && syntaxFiles.contains(detected)) {
                 painter->activate(detected, syntaxFiles[detected]);
-                mainWin->statusBar()->showMessage("Auto: " + detected, 2000);
+                mainWin->statusBar()->showMessage("Detected: " + detected, 2000);
 
                 for (int i = 0; i < selector->count(); ++i) {
                     if (selector->itemData(i).toString() == detected) {
@@ -495,12 +488,17 @@ private slots:
 
     void onDirectoryChanged(const QString &path) {
         Q_UNUSED(path)
-        mainWin->statusBar()->showMessage("Syntax dir changed", 2000);
+        mainWin->statusBar()->showMessage("Syntax dir updated", 2000);
         reloadAll();
     }
 
     void onFileChanged(const QString &path) {
-        mainWin->statusBar()->showMessage("File changed: " + QFileInfo(path).fileName(), 2000);
+        if (path.endsWith(".conf")) {
+            for (TextPainter *painter : std::as_const(painters)) {
+                painter->refreshColors();
+            }
+            return;
+        }
 
         if (!watcher->files().contains(path)) {
             watcher->addPath(path);
@@ -518,6 +516,10 @@ private slots:
             watcher->removePaths(watched);
         }
         watcher->addPath(syntaxDir);
+        QString configPath = Settings::instance().configFilePath();
+        if (QFile::exists(configPath)) {
+            watcher->addPath(configPath);
+        }
 
         scanFiles();
         buildSelector();
@@ -551,7 +553,7 @@ private:
     void attachToEditors() {
         QList<QPlainTextEdit*> editors = tabs->findChildren<QPlainTextEdit*>("VexEditor");
 
-        for (QPlainTextEdit *ed : editors) {
+        for (QPlainTextEdit *ed : std::as_const(editors)) {
             if (!painters.contains(ed)) {
                 TextPainter *p = new TextPainter(ed->document());
                 painters[ed] = p;
@@ -604,13 +606,12 @@ private:
                         QString exts = trimmed.mid(6).trimmed();
                         QStringList extList = exts.split("&&");
 
-                        for (QString e : extList) {
-                            e = e.trimmed();
-                            if (!e.startsWith('.')) {
-                                e = "." + e;
+                        for (const QString &e : std::as_const(extList)) {
+                            QString trimmedE = e.trimmed();
+                            if (!trimmedE.startsWith('.')) {
+                                trimmedE = "." + trimmedE;
                             }
-
-                            if (e == ext) {
+                            if (trimmedE == ext) {
                                 return it.key();
                             }
                         }

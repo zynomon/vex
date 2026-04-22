@@ -1,18 +1,18 @@
 /*
      Vex Revolution,
-            VEX#QSS is vex related custom color configs
+            VEX#QSS is vex related custom color configs use hex color codes;
             Author : Zynomon aelius
 */
 
 VEX#QSS {
-    line-highlight-color: rgba(0, 60, 30, 102);
-    line-number-color-fg: rgb(100, 180, 100);
-    line-number-color-bg: rgb(30, 30, 30);
-    comment: rgb(128, 128, 128);
-    critical: rgb(255, 255, 255);
-    quote: rgb(0, 255, 0);
-    keyword: rgb(135, 206, 250);
-    string: rgb(255, 165, 0);
+    line-highlight-color: #66003c1e;
+    line-number-color-fg: #64b464;
+    line-number-color-bg: #1e1e1e;
+    comment: #808080;
+    critical: #ffffff;
+    quote: #00ff00;
+    keyword: #87cefa;
+    string: #ffa500;
 }
 
 QMainWindow {
@@ -282,4 +282,10 @@ QPushButton:hover, QToolButton:hover {
     border-bottom: 1px solid #0a150a;
     border-left: 1px solid #3a6a3a;
     border-right: 1px solid #1a2a1a;
+}
+
+
+QPushButton::menu-indicator {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
 }

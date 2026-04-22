@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 PKG_NAME="vex"
-PKG_VERSION="4.1" 
+PKG_VERSION="4.2"
 PKG_RELEASE="Cytoplasm"
 PKG_MAINTAINER="Zynomon Aelius <zynomon@proton.me>"
 PKG_VENDOR="Zynomon Aelius"

@@ -12,15 +12,15 @@
     <key>CFBundleIdentifier</key>
     <string>vex</string>
     <key>CFBundleInfoDictionaryVersion</key>
-    <string>4.0</string>
+    <string>4.2</string>
     <key>CFBundleName</key>
     <string>Vex</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>4.0</string>
+    <string>4.2</string>
     <key>CFBundleVersion</key>
-    <string>4.0</string>
+    <string>4.2</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.15</string>
     <key>NSHighResolutionCapable</key>

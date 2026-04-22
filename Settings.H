@@ -5,12 +5,15 @@
 #include <QIcon>
 #include <QVariant>
 #include <QFile>
+#include <functional>
 #ifdef Q_OS_WIN
 #include <qt_windows.h>
 #endif
 
 class Settings {
 public:
+    using IconResolver = std::function<QIcon(const QString&)>;
+
     static Settings& instance() {
         static Settings _instance;
         return _instance;
@@ -33,31 +36,35 @@ public:
         return settings.contains(key);
     }
 
-
     QString configFilePath() const {
         return basePath() + "/vex.conf";
     }
 
-    static QIcon resolveIcon(const QString &baseName) {
-
-        QIcon icon = QIcon::fromTheme(baseName);
-        if (!icon.isNull())
-        return icon;
-
-        static const QStringList exts = {"svg", "ico", "icns", "svgz"};
-        for (const QString &ext : std::as_const(exts)) {
-            const QString qrcPath = ":/" + baseName + "." + ext;
-            if (QFile::exists(qrcPath))
-                return QIcon(qrcPath);
-        }
-        return QIcon();
+    void setIconResolver(IconResolver resolver) {
+        m_iconResolver = std::move(resolver);
     }
 
+    static QIcon resolveIcon(const QString &baseName) {
+        static const QStringList exts = {"svg", "png", "ico", "icns", "svgz"};
+        QString userIconPath = instance().get<QString>("selected_user_icon_path");
+        if (!userIconPath.isEmpty()) {
+            for (const QString &ext : exts) {
+                QString f = userIconPath + "/" + baseName + "." + ext;
+                if (QFile::exists(f)) return QIcon(f);
+            }
+        }
+
+        for (const QString &ext : exts) {
+            const QString qrcPath = ":/" + baseName + "." + ext;
+            if (QFile::exists(qrcPath)) return QIcon(qrcPath);
+        }
+
+        return QIcon::fromTheme(baseName);
+    }
 
 
     static QString basePath() {
         QString home = QDir::homePath();
-
         QString path = home + "/.vex";
         QDir().mkpath(path);
 #ifdef Q_OS_WIN
@@ -73,9 +80,8 @@ private:
         QString confFile = configFilePath();
         if (!QFile::exists(confFile)) {
             QFile file(confFile);
-            if (file.open(QIODevice::WriteOnly)) {
+            if (file.open(QIODevice::WriteOnly))
                 file.close();
-            }
         }
     }
 
@@ -83,9 +89,7 @@ private:
     Settings& operator=(const Settings&) = delete;
 
     QSettings settings;
-
+    IconResolver m_iconResolver;
 };
-
-
 
 #endif // SETTINGS_H
