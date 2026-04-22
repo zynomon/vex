@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -e
 
 FOLDER_NAME="${PKG_NAME}-${PKG_VERSION}-${PKG_RELEASE}"
@@ -8,7 +8,10 @@ echo "[PKG-TGZ] Creating workspace: ${WORKSPACE}"
 rm -rf "${WORKSPACE}"
 mkdir -p "${WORKSPACE}"
 
-cp -a "${STAGE_DIR}/usr/." "${WORKSPACE}/" 2>/dev/null || true
+cp "${STAGE_DIR}/usr/bin/vex" "${WORKSPACE}/vex"
+cp "${STAGE_DIR}/usr/lib/vex/"*.so "${WORKSPACE}/"
+cp "${STAGE_DIR}/usr/share/icons/hicolor/scalable/apps/"*.svg "${WORKSPACE}/"
+cp "${STAGE_DIR}/usr/share/applications/"*.desktop "${WORKSPACE}/"
 
 cat << EOF > "${WORKSPACE}/README.txt"
  ${PKG_NAME^^} v${PKG_VERSION} (${BUILD_TYPE})
@@ -93,8 +96,11 @@ cat << 'SCRIPT' > "${WORKSPACE}/remove.sh"
 #!/bin/sh
 set -e
 
-echo "'\033[0;32mV\033[1;37mex Remover"
-echo "'\033[0;32m_______________________________________"
+echo '\033[0;32mV\033[1;37mex Remover'
+echo '\033[0;32m_______________________________________'
+
+printf "Remove config files? (~/.vex, /root/.vex) [y/N]: "
+read answer
 
 if [ -f /bin/vex ]; then
     echo "[REMOVE] System-wide installation"
@@ -113,8 +119,13 @@ if [ -f ~/.local/bin/vex ]; then
     rm -f ~/.local/share/applications/vex.desktop
 fi
 
-rm -rf /home/*/.vex  
-rm -rf /root/.vex
+case "$answer" in
+    [Yy]|[Yy][Ee][Ss])
+        echo "[REMOVE] Config files"
+        rm -rf /home/*/.vex 2>/dev/null
+        rm -rf /root/.vex 2>/dev/null
+        ;;
+esac
 
 echo "[DONE] Removal complete"
 SCRIPT
