@@ -455,7 +455,7 @@ private:
             templateFile.close();
         }
 
-        QString fileReqPath = Settings::basePath() + "/.temp/fileReq";
+        QString fileReqPath = Settings::basePath() + "/.temp/"  + QString::number(QCoreApplication::applicationPid()) + ".Req";
         QDir().mkpath(Settings::basePath() + "/.temp");
 
         QFile pathFile(fileReqPath);

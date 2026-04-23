@@ -1,5 +1,3 @@
-#!/usr/bin/env sh
-
 PKG_NAME="vex"
 PKG_VERSION="4.2"
 PKG_RELEASE="Cytoplasm"
@@ -9,8 +7,8 @@ PKG_SUMMARY="An extensive Qt text editor"
 PKG_LICENSE="Apache 2.0"
 PKG_URL="https://github.com/zynomon/vex"
 
-DEB_DEPENDS="libc6, libqt6core6, libqt6gui6, libqt6widgets6"
-RPM_DEPENDS="qt6-qtbase, glibc"
+DEB_DEPENDS="libqt6core6, libqt6gui6, libqt6widgets6"
+RPM_DEPENDS="qt6-qtbase"
 ARCH_DEPENDS="qt6-base"
 MAC_FRAMEWORKS="Qt6Core Qt6Gui Qt6Widgets"
 

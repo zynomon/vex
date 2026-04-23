@@ -89,7 +89,7 @@ public:
     }
 
     void setupButton() {
-        m_btn->setStyleSheet("");  // back to default
+        m_btn->setStyleSheet("");
         loadMODE();
         switch (m_mode) {
         case MODE_INS: INS(); break;
@@ -1024,7 +1024,7 @@ void VexWidget::onSettingsFileChanged(const QString &path) {
         }
     }
     if (m_mainWindow) {
-        m_mainWindow->statusBar()->showMessage("Settings updated", 500);
+        m_mainWindow->statusBar()->showMessage("saved.", 100);
     }
 }
 
@@ -1946,13 +1946,7 @@ void VexWidget::openTerminal() {
 
 #else
 
-    QString terminalUri = "terminal://" + workingDir;
-    bool success = QProcess::startDetached("xdg-open", QStringList() << terminalUri);
-
-    if (success) {
-        m_mainWindow->statusBar()->showMessage("Default terminal opened in: " + workingDir, 2000);
-        return;
-    }
+    bool success = false;
 
     const QList<QPair<QString, QStringList>> terminals = {
         {"konsole",        {"--workdir", workingDir}},
@@ -1982,7 +1976,6 @@ void VexWidget::openTerminal() {
     m_mainWindow->statusBar()->showMessage("Failed to open terminal", 3000);
 #endif
 }
-
 void VexWidget::showAbout() {
     QDialog aboutDialog(this);
     aboutDialog.setWindowTitle("About Vex");
@@ -2113,9 +2106,8 @@ void VexWidget::dropEvent(QDropEvent *event) {
 }
 
 void VexWidget::closeEvent(QCloseEvent *event) {
-    QString tempDir = Settings::basePath() + "/.temp";
-    QString requestFile = tempDir + "/fileReq";
-
+    QString tempDir = Settings::basePath() + "/.temp/";
+    QString requestFile = tempDir + QString::number(QCoreApplication::applicationPid()) + ".Req";
     bool hasUnsavedChanges = false;
     for (int i = 0; i < tabWidget->count(); ++i) {
         VexEditor *editor = qobject_cast<VexEditor*>(tabWidget->widget(i));
@@ -2308,7 +2300,6 @@ void VexWidget::onLineEndingChanged() {
         updateTabAppearance(tabWidget->currentIndex());
     }
 }
-
 class VexCorePlugin : public QObject, public CorePlugin {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "vex.core/4.0")
@@ -2320,6 +2311,7 @@ public:
         metadata.importance = PluginMetadata::Xylem;
         return metadata;
     }
+
     bool initialize(MainWindow* window, Settings* settings, CmdLine& cmdLine) override {
         QMainWindow *mainWin = reinterpret_cast<QMainWindow*>(window);
 
@@ -2327,82 +2319,44 @@ public:
 
         QString tempDir = Settings::basePath() + "/.temp";
         QDir().mkpath(tempDir);
-        QString requestFilePath = tempDir + "/fileReq";
 
-        QFile requestFile(requestFilePath);
+        qint64 currentPid = QCoreApplication::applicationPid();
+        QString requestFilePath = tempDir + "/" + QString::number(currentPid) + ".Req";
 
-        if (requestFile.exists()) {
-            QStringList filesToOpen = cmdLine.flagArgs("f");
-            if (!filesToOpen.isEmpty()) {
-                QFile requestFileWrite(requestFilePath);
-                if (requestFileWrite.open(QIODevice::Append | QIODevice::Text)) {
-                    QTextStream out(&requestFileWrite);
-                    out.setEncoding(QStringConverter::Utf8);
-                    for (const QString& path : std::as_const(filesToOpen)) {
-                        QStringList splitPaths = path.split('\n', Qt::SkipEmptyParts);
-                        for (const QString& p : std::as_const(splitPaths)) {
-                            out << QDir::current().absoluteFilePath(p.trimmed()) << "\n";
-                        }
-                    }
-                    requestFileWrite.close();
-                }
+        QDir dir(tempDir);
+        QStringList reqFiles = dir.entryList(QStringList() << "*.Req", QDir::Files);
+        bool otherInstanceExists = false;
+        QString targetFile;
+
+        for (const QString& file : std::as_const(reqFiles)) {
+            qint64 pid = file.section('.', 0, 0).toLongLong();
+            if (pid != currentPid && isProcessAlive(pid)) {
+                otherInstanceExists = true;
+                targetFile = tempDir + "/" + file;
+                break;
             }
+        }
 
-            QFileSystemWatcher *fallbackWatcher = new QFileSystemWatcher();
-            fallbackWatcher->addPath(requestFilePath);
-
-            bool *handled = new bool(false);
-
-            QObject::connect(fallbackWatcher, &QFileSystemWatcher::fileChanged,
-                             [requestFilePath, handled](const QString &path) {
-                                 if (*handled) {
-                                     return;
-                                 }
-
-                                 QFile file(requestFilePath);
-                                 if (file.size() == 0) {
-                                     *handled = true;
-                                     qApp->quit();
-                                 }
-                             });
-
-            QTimer::singleShot(10000, [requestFilePath, handled]() {
-                if (*handled) {
-                    return;
-                }
-
-                *handled = true;
-
-                QString savedContent;
-                QFile file(requestFilePath);
-                if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                    QTextStream in(&file);
-                    in.setEncoding(QStringConverter::Utf8);
-                    savedContent = in.readAll();
-                    file.close();
-                }
-
-                QFile::remove(requestFilePath);
-
-                QString appPath = QCoreApplication::applicationFilePath();
-                QProcess::startDetached(appPath, QStringList());
-
-                QTimer::singleShot(500, [requestFilePath, savedContent]() {
-                    QFile newRequestFile(requestFilePath);
-                    if (newRequestFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                        QTextStream out(&newRequestFile);
+        if (otherInstanceExists) {
+            QTimer::singleShot(0, [&cmdLine, targetFile]() {
+                QStringList filesToOpen = cmdLine.flagArgs("f");
+                if (!filesToOpen.isEmpty()) {
+                    QFile requestFile(targetFile);
+                    if (requestFile.open(QIODevice::Append | QIODevice::Text)) {
+                        QTextStream out(&requestFile);
                         out.setEncoding(QStringConverter::Utf8);
-                        out << savedContent;
-                        newRequestFile.close();
+                        for (const QString& path : std::as_const(filesToOpen)) {
+                            out << QDir::current().absoluteFilePath(path) << "\n";
+                        }
+                        requestFile.close();
                     }
-                });
-
+                }
                 qApp->quit();
             });
-
             return false;
         }
 
+        QFile requestFile(requestFilePath);
         if (requestFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             requestFile.close();
         }
@@ -2428,13 +2382,31 @@ public:
         QTimer::singleShot(0, [editor, &cmdLine]() {
             QStringList files = cmdLine.flagArgs("f");
             for (const QString& filePath : std::as_const(files)) {
-                QStringList splitPaths = filePath.split('\n', Qt::SkipEmptyParts);
-                for (const QString& path : std::as_const(splitPaths)) {
-                    editor->openFileAtPath(path.trimmed());
-                }
+                editor->openFileAtPath(filePath);
             }
         });
+
+        connect(qApp, &QCoreApplication::aboutToQuit, [requestFilePath]() {
+            QFile::remove(requestFilePath);
+        });
+
         return true;
+    }
+
+private:
+    bool isProcessAlive(qint64 pid) {
+#ifdef Q_OS_WIN
+        QProcess p;
+        p.start("tasklist", QStringList() << "/FI" << QString("PID eq %1").arg(pid));
+        p.waitForFinished();
+        QString output = QString::fromLocal8Bit(p.readAllStandardOutput());
+        return output.contains(QString::number(pid));
+#else
+        QProcess p;
+        p.start("ps", QStringList() << "-p" << QString::number(pid));
+        p.waitForFinished();
+        return p.exitCode() == 0;
+#endif
     }
 };
 #include "VexCore.moc"
