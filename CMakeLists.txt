@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(vex VERSION 4.2 LANGUAGES CXX)
+project(vex VERSION 4.3 LANGUAGES CXX)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -33,20 +33,21 @@ install(TARGETS vex
 )
 
 if(WIN32)
-    install(TARGETS VexCore SyntaxCore LookAndFeelCore
+    install(TARGETS EditorCore SyntaxCore LookAndFeelCore
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 elseif(APPLE)
 
-    install(TARGETS VexCore SyntaxCore LookAndFeelCore
+    install(TARGETS EditorCore SyntaxCore LookAndFeelCore
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 elseif(UNIX AND NOT APPLE)
 
     install(FILES
-        ${CMAKE_BINARY_DIR}/Core/VexCore.so
+        ${CMAKE_BINARY_DIR}/Core/EditorCore.so
         ${CMAKE_BINARY_DIR}/Core/SyntaxCore.so
         ${CMAKE_BINARY_DIR}/Core/LookAndFeelCore.so
+        ${CMAKE_BINARY_DIR}/Core/Uplugin.so
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/vex
     )
 endif()

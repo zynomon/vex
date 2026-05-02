@@ -119,7 +119,6 @@ private slots:
             m_mainWindow->statusBar()->showMessage("Qt Style: " + styleName, 2000);
         }
     }
-
     void onThemeSelected(QAction *action) {
         QString themePath = action->data().toString();
 
@@ -131,10 +130,24 @@ private slots:
         if (themePath.isEmpty()) {
             qApp->setStyleSheet("");
             currentThemePath = "";
-            Settings::instance().remove("currentThemePath");
+
+            Settings &s = Settings::instance();
+            s.remove("currentThemePath");
+
+            s.remove("theme/lineHighlightColor");
+            s.remove("theme/lineNumberFg");
+            s.remove("theme/lineNumberBg");
+            s.remove("theme/lineNumberWidth");
+            s.remove("theme/commentColor");
+            s.remove("theme/criticalColor");
+            s.remove("theme/quoteColor");
+            s.remove("theme/keywordColor");
+            s.remove("theme/stringColor");
+
             m_mainWindow->statusBar()->showMessage("Theme: None", 2000);
 
-            QList<QAction*> acts = themesMenu->actions(); for (QAction *act : acts) {
+            QList<QAction*> acts = themesMenu->actions();
+            for (QAction *act : acts) {
                 if (act->data().toString().isEmpty()) {
                     act->setChecked(true);
                     break;
@@ -596,10 +609,8 @@ private:
             QApplication::setStyle(QStyleFactory::create(savedStyle));
 
         currentThemePath = settings.get<QString>("currentThemePath");
-        if (!currentThemePath.isEmpty() && QFile::exists(currentThemePath)) {
+        if (!currentThemePath.isEmpty()) {
             applyTheme(currentThemePath, false);
-        } else {
-            settings.setValue("currentThemePath", ":/vex.qss");
         }
 
         currentIconTheme = settings.get<QString>("currentIconTheme");

@@ -12,6 +12,7 @@
 #include <QString>
 #include <QStringList>
 #include <QCommandLineParser>
+#include <QSet>
 #include <utility>
 #include "Settings.H"
 
@@ -41,16 +42,11 @@ public:
     }
 
     void addCommand(const CMD& cmd) {
-        if (parsed) {
-            qWarning() << "Cannot add commands after parse() has been called";
-            return;
-        }
         commands.append(cmd);
     }
 
     ParseResult parse(int argc, char *argv[]) {
-        if (parsed) return ParseOk;
-
+        Q_UNUSED(argc)
         parser.setApplicationDescription("Vex");
         parser.addHelpOption();
         parser.addVersionOption();
@@ -58,22 +54,11 @@ public:
         for (const CMD& cmd : std::as_const(commands)) {
             if (cmd.names.isEmpty()) continue;
 
-            QCommandLineOption option(
-                cmd.names[0],
-                cmd.help,
-                cmd.value,
-                cmd.value
-                );
-
+            QCommandLineOption option(cmd.names[0], cmd.help, cmd.value, cmd.value);
             parser.addOption(option);
 
             for (int i = 1; i < cmd.names.size(); ++i) {
-                QCommandLineOption aliasOption(
-                    cmd.names[i],
-                    cmd.help,
-                    cmd.value,
-                    cmd.value
-                    );
+                QCommandLineOption aliasOption(cmd.names[i], cmd.help, cmd.value, cmd.value);
                 parser.addOption(aliasOption);
             }
         }
@@ -93,21 +78,20 @@ public:
         }
 
         collectFlagArgs();
-
         parsed = true;
         return ParseOk;
     }
 
     bool isSet(const QString& name) const {
-        return parser.isSet(name);
+        return parsed ? parser.isSet(name) : false;
     }
 
     QString value(const QString& name) const {
-        return parser.value(name);
+        return parsed ? parser.value(name) : QString();
     }
 
     QStringList positionalArgs() const {
-        return parser.positionalArguments();
+        return parsed ? parser.positionalArguments() : QStringList();
     }
 
     QString errorString() const {
@@ -115,6 +99,7 @@ public:
     }
 
     QStringList flagArgs(const QString& flagName) const {
+        if (!parsed) return QStringList();
         for (const FlagArgs& fa : std::as_const(flagArgsList)) {
             QString cleanFlag = fa.flag;
             if (cleanFlag.startsWith("--"))
@@ -128,6 +113,8 @@ public:
         }
         return QStringList();
     }
+
+    bool isParsed() const { return parsed; }
 
 private:
     void collectFlagArgs() {
@@ -162,7 +149,7 @@ private:
         stream << "───────────────────────────────────\n";
         stream << "\n";
         stream << "About:\n";
-        stream << "  Version 4.0 (Cytoplasm)\n";
+        stream << "  Version 4.3 (Cytoplasm)\n";
         stream << "\n";
         stream << "\n";
         stream << "Commands:\n";
@@ -173,14 +160,9 @@ private:
         for (const CMD& cmd : std::as_const(commands)) {
             QString names = cmd.names.join(", ");
             if (cmd.value.isEmpty()) {
-                stream << QString("  %1 %2\n")
-                .arg(names, -30)
-                    .arg(cmd.help);
+                stream << QString("  %1 %2\n").arg(names, -30).arg(cmd.help);
             } else {
-                stream << QString("  %1 <%2> %3\n")
-                .arg(names, -30)
-                    .arg(cmd.value, -15)
-                    .arg(cmd.help);
+                stream << QString("  %1 <%2> %3\n").arg(names, -30).arg(cmd.value, -15).arg(cmd.help);
             }
         }
         stream << "\n";
@@ -212,6 +194,7 @@ public:
     virtual ~CorePlugin() = default;
     virtual PluginMetadata meta() const = 0;
     virtual bool initialize(class MainWindow*, class Settings*, CmdLine& cmdLine) = 0;
+    virtual void afterParse(CmdLine& cmdLine) { Q_UNUSED(cmdLine); }
 };
 
 Q_DECLARE_INTERFACE(CorePlugin, "vex.core/4.0")
@@ -219,7 +202,7 @@ Q_DECLARE_INTERFACE(CorePlugin, "vex.core/4.0")
 class PluginLoader {
 public:
     static void loadAndInitialize(MainWindow* window, Settings* settings, CmdLine& cmdLine, int argc, char *argv[]) {
-cmdLine.addCommand({{"d", "debug"}, "Enable debug mode", ""});
+        cmdLine.addCommand({{"d", "debug"}, "Enable debug mode", ""});
 
         QStringList paths;
         paths << QCoreApplication::applicationDirPath();
@@ -227,11 +210,9 @@ cmdLine.addCommand({{"d", "debug"}, "Enable debug mode", ""});
 #if defined(Q_OS_UNIX) && !defined(Q_OS_DARWIN)
         QByteArray ldLibraryPath = qgetenv("LD_LIBRARY_PATH");
         if (!ldLibraryPath.isEmpty()) {
-            QStringList ldDirs = QString::fromLocal8Bit(ldLibraryPath).split(':');
+            const QStringList ldDirs = QString::fromLocal8Bit(ldLibraryPath).split(':');
             for (const QString& dir : ldDirs) {
-                if (!dir.isEmpty()) {
-                    paths << dir + "/vex";
-                }
+                if (!dir.isEmpty()) paths << dir + "/vex";
             }
         }
         paths << "/usr/lib/vex";
@@ -240,31 +221,43 @@ cmdLine.addCommand({{"d", "debug"}, "Enable debug mode", ""});
 
         QList<CorePlugin*> xylem, phloem, simple;
         QList<PluginError> errors;
+        QSet<QString> loadedFiles;
 
         for (const QString& path : std::as_const(paths)) {
             QDir dir(path);
+            if (!dir.exists()) continue;
             const QStringList files = dir.entryList(getPluginExtensions(), QDir::Files);
             for (const QString& file : std::as_const(files)) {
-                if (QPluginLoader* loader = tryLoadPlugin(dir.absoluteFilePath(file), errors)) {
-                    activeLoaders.append(loader);
-                    CorePlugin* plugin = qobject_cast<CorePlugin*>(loader->instance());
+                QString fullPath = dir.absoluteFilePath(file);
+                QString fileName = QFileInfo(fullPath).fileName();
 
-                    switch (plugin->meta().importance) {
-                    case PluginMetadata::Xylem:  xylem.append(plugin); break;
-                    case PluginMetadata::Phloem: phloem.append(plugin); break;
-                    case PluginMetadata::Simple: simple.append(plugin); break;
-                    }
+                if (loadedFiles.contains(fileName)) {
+                    Debug_Log("Skipping duplicate: " + fileName);
+                    continue;
+                }
+
+                QPluginLoader* loader = tryLoadPlugin(fullPath, errors);
+                if (!loader) continue;
+
+                activeLoaders.append(loader);
+                loadedFiles.insert(fileName);
+                CorePlugin* plugin = qobject_cast<CorePlugin*>(loader->instance());
+
+                switch (plugin->meta().importance) {
+                case PluginMetadata::Xylem:  xylem.append(plugin); break;
+                case PluginMetadata::Phloem: phloem.append(plugin); break;
+                case PluginMetadata::Simple: simple.append(plugin); break;
                 }
             }
         }
 
-        if (!errors.isEmpty()) {
-            showErrorSummary(errors);
-        }
+        if (!errors.isEmpty()) showErrorSummary(errors);
+
+        Debug_Log("Xylem plugins: " + QString::number(xylem.size()));
+        Debug_Log("Phloem plugins: " + QString::number(phloem.size()));
+        Debug_Log("Simple plugins: " + QString::number(simple.size()));
 
         initializePhase("Xylem", xylem, window, settings, cmdLine);
-        initializePhase("Phloem", phloem, window, settings, cmdLine);
-        initializePhase("Simple", simple, window, settings, cmdLine);
 
         CmdLine::ParseResult result = cmdLine.parse(argc, argv);
         if (result == CmdLine::HelpRequested || result == CmdLine::VersionRequested) {
@@ -276,6 +269,13 @@ cmdLine.addCommand({{"d", "debug"}, "Enable debug mode", ""});
         }
 
         Debug_Mode = cmdLine.isSet("debug");
+
+        for (CorePlugin* plugin : std::as_const(xylem)) {
+            plugin->afterParse(cmdLine);
+        }
+
+        initializePhase("Phloem", phloem, window, settings, cmdLine);
+        initializePhase("Simple", simple, window, settings, cmdLine);
     }
 
     static void cleanup() {
@@ -303,21 +303,15 @@ private:
     static bool Debug_Mode;
 
     static void Debug_Log(const QString& message) {
-        if (Debug_Mode) {
-            qDebug() << message;
-        }
+        if (Debug_Mode) qDebug() << message;
     }
 
     static void Debug_Warning(const QString& message) {
-        if (Debug_Mode) {
-            qWarning() << message;
-        }
+        if (Debug_Mode) qWarning() << message;
     }
 
     static void Debug_Critical(const QString& message) {
-        if (Debug_Mode) {
-            qCritical() << message;
-        }
+        if (Debug_Mode) qCritical() << message;
     }
 
     static QStringList getPluginExtensions() {
@@ -404,9 +398,7 @@ private:
     }
 
     static void showErrorSummary(const QList<PluginError>& errors) {
-        if (!Debug_Mode) {
-            return;
-        }
+        if (!Debug_Mode) return;
 
         QString summary = QString("Failed to load %1 plugin(s):\n\n").arg(errors.size());
 

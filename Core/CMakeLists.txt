@@ -7,25 +7,23 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
-add_library(VexCore SHARED VexCore.cxx)
-add_library(SyntaxCore SHARED SyntaxCore.cxx)
-add_library(LookAndFeelCore SHARED LookAndFeelCore.cxx themes/t.qrc)
+function(add_vex_library NAME SOURCES)
+    add_library(${NAME} SHARED ${SOURCES} ${ARGN})
+    target_link_libraries(${NAME} PRIVATE Qt6::Core Qt6::Widgets)
+    target_include_directories(${NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+    set_target_properties(${NAME} PROPERTIES PREFIX "")
 
-target_link_libraries(VexCore PRIVATE Qt6::Core Qt6::Widgets)
-target_link_libraries(SyntaxCore PRIVATE Qt6::Core Qt6::Widgets)
-target_link_libraries(LookAndFeelCore PRIVATE Qt6::Core Qt6::Widgets)
+    if(WIN32 OR APPLE)
+        set_target_properties(${NAME} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+            LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+        )
+    endif()
+endfunction()
 
-target_include_directories(VexCore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
-target_include_directories(SyntaxCore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
-target_include_directories(LookAndFeelCore PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+add_vex_library(EditorCore EditorCore.cxx)
+add_vex_library(SyntaxCore SyntaxCore.cxx)
+add_vex_library(LookAndFeelCore LookAndFeelCore.cxx rc/t.qrc)
+add_vex_library(Uplugin Uplugin.cxx Uplugin.H $<$<PLATFORM_ID:Windows>:rc/u.qrc>)
 
-set_target_properties(VexCore SyntaxCore LookAndFeelCore PROPERTIES
-     PREFIX ""
-)
-
-if(WIN32 OR APPLE)
-    set_target_properties(VexCore SyntaxCore LookAndFeelCore PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"  
-    )
-endif()
+add_subdirectory(VIDE/)

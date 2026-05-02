@@ -1,5 +1,5 @@
 !define APPNAME "Vex"
-!define VERSION "4.2"
+!define VERSION "4.3"
 !define PUBLISHER "Zynomon Aelius"
 !define VENDOR "Zynomon Aelius"
 !define SUMMARY "Extensive text editor"
@@ -500,7 +500,7 @@ Section "Uninstall"
   Call un.RefreshIconCache
 SectionEnd
 
-VIProductVersion "4.2.0.0"
+VIProductVersion "4.3.0.0"
 VIAddVersionKey "ProductName" "${APPNAME}"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "ProductVersion" "${VERSION}"

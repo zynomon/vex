@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>run-build.svg</file>
+    </qresource>
+</RCC>

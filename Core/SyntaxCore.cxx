@@ -3,7 +3,7 @@
 *                         Apache 2.0                           *
 *     Copyright Zynomon aelius <zynomon@proton.me>  2026       *
 *               Project         :        Vex                   *
-*               Version         :        4.2 (Cytoplasm)       *
+*               Version         :        4.3 (Cytoplasm)       *
 *                                                              *
 *                                                              *
 ****************************************************************/
@@ -704,10 +704,10 @@ private:
 
         selector->clear();
 
-        QIcon autoIcon = Settings::resolveIcon("system-run");
+        QIcon autoIcon = Settings::resolveIcon("media-playback-start");
         selector->addItem(autoIcon, "Auto", "AUTO");
 
-        QIcon plainIcon = Settings::resolveIcon("text-x-generic");
+        QIcon plainIcon = Settings::resolveIcon("document");
         selector->addItem(plainIcon, "Plain Text", "PLAIN");
 
         selector->insertSeparator(2);

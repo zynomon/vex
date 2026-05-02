@@ -222,7 +222,9 @@ copy "%BUILD_DIR%\%EXE_NAME%" "%STAGING_DIR%\" >nul
 
 if exist "%BUILD_DIR%\LookAndFeelCore.dll" copy "%BUILD_DIR%\LookAndFeelCore.dll" "%STAGING_DIR%\" >nul 2>&1
 if exist "%BUILD_DIR%\SyntaxCore.dll" copy "%BUILD_DIR%\SyntaxCore.dll" "%STAGING_DIR%\" >nul 2>&1
-if exist "%BUILD_DIR%\VexCore.dll" copy "%BUILD_DIR%\VexCore.dll" "%STAGING_DIR%\" >nul 2>&1
+if exist "%BUILD_DIR%\Uplugin.dll" copy "%BUILD_DIR%\Uplugin.dll" "%STAGING_DIR%\" >nul 2>&1
+
+if exist "%BUILD_DIR%\EditorCore.dll" copy "%BUILD_DIR%\EditorCore.dll" "%STAGING_DIR%\" >nul 2>&1
 copy "..\..\LICENSE" "%STAGING_DIR%\" >nul 2>&1
 
 cd "%STAGING_DIR%"
@@ -277,9 +279,9 @@ if %errorlevel% equ 0 (
     echo.
     echo %DG_WHITE%_______________________________________^<^!^>%RESET%
     echo %DG_WHITE%.%RESET%
-    echo %DG_WHITE%Success! Vex_4.2_Setup.exe created%RESET%
+    echo %DG_WHITE%Success! Vex_4.3_Setup.exe created%RESET%
     echo %DG_WHITE%_______________________________________________/%RESET%
-    copy "Vex_4.2_Setup.exe" "..\..\Packages\" >nul
+    copy "Vex_4.3_Setup.exe" "..\..\Packages\" >nul
 ) else (
     echo %RED%[ERROR] NSIS compilation failed%RESET%
 )

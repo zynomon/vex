@@ -9,9 +9,9 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "github.com/zynomon/vex"
             VALUE "FileDescription", "Vex Text Editor"
-            VALUE "FileVersion", "4.2"
+            VALUE "FileVersion", "4.3"
             VALUE "ProductName", "Vex"
-            VALUE "ProductVersion", "4.2"
+            VALUE "ProductVersion", "4.3"
         END
     END
 END

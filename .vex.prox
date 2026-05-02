@@ -1,0 +1,16 @@
+[project]
+name=vex
+root=./
+
+[files]
+1=CMakeLists.txt
+2=LICENSE
+3=main.cxx
+4=Plugvex.H
+5=README.md
+6=Settings.H
+
+[subdir]
+1=Core/
+2=Dists/
+3=Packages/

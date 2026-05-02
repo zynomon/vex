@@ -1,0 +1,1754 @@
+/*
+ *  Copyright© Florian Plesker <florian.plesker@web.de>
+ *  Windows ConPTY backend ported from Qt Creator's Pty.cpp
+ */
+
+#include "st.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+
+#include <QString>
+#include <QApplication>
+
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#include <wchar.h>
+#else
+#include <sys/stat.h>
+#include <unistd.h>
+#include <pwd.h>
+#if defined(__linux)
+#include <pty.h>
+#elif defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__)
+#include <util.h>
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+#include <libutil.h>
+#endif
+#endif
+
+#ifdef __MINGW32__
+static int wcwidth(wchar_t c) {
+    if (c == 0) return 0;
+    if (c < 32) return -1;
+    if (c >= 0x1100) return 2;
+    return 1;
+}
+#endif
+
+SimpleTerminal::SimpleTerminal(QObject *parent) : QObject(parent) {
+    readBufSize = sizeof(readBuf) / sizeof(readBuf[0]);
+
+#ifdef Q_OS_WIN
+    m_hPipeIn  = INVALID_HANDLE_VALUE;
+    m_hPipeOut = INVALID_HANDLE_VALUE;
+    m_hPC      = NULL;
+#endif
+
+    tnew(80, 80);
+    ttynew();
+
+#ifndef Q_OS_WIN
+    readNotifier = new QSocketNotifier(master, QSocketNotifier::Read);
+    readNotifier->setEnabled(true);
+    connect(readNotifier, &QSocketNotifier::activated, this, &SimpleTerminal::ttyread);
+#else
+    readNotifier = nullptr;
+    m_winNotifier = new QTimer(this);
+    connect(m_winNotifier, &QTimer::timeout, this, &SimpleTerminal::ttyread);
+    m_winNotifier->start(10);
+#endif
+
+    strescseq.buf = (char *) malloc(STR_BUF_SIZ);
+}
+
+SimpleTerminal::~SimpleTerminal() {
+#ifndef Q_OS_WIN
+    disconnect(readNotifier);
+    delete readNotifier;
+#else
+    if (m_winNotifier) {
+        m_winNotifier->stop();
+        disconnect(m_winNotifier);
+        delete m_winNotifier;
+    }
+#endif
+
+    for (int i = 0; i <= term.row; i++) {
+        free(term.line[i]);
+        free(term.alt[i]);
+    }
+    free(term.dirty);
+    free(term.tabs);
+    free(strescseq.buf);
+}
+
+void SimpleTerminal::tnew(int col, int row) {
+    term = (Term) { .c = { .attr = { .u = defaultCursor, .fg = defaultfg, .bg = defaultbg } } };
+    tresize(col, row);
+    treset();
+}
+
+void SimpleTerminal::closePty() {
+#ifdef Q_OS_WIN
+    if (m_hPipeIn != INVALID_HANDLE_VALUE) {
+        CloseHandle(m_hPipeIn);
+        m_hPipeIn = INVALID_HANDLE_VALUE;
+    }
+    if (m_hPipeOut != INVALID_HANDLE_VALUE) {
+        CloseHandle(m_hPipeOut);
+        m_hPipeOut = INVALID_HANDLE_VALUE;
+    }
+    if (m_hPC) {
+        ClosePseudoConsole(m_hPC);
+        m_hPC = NULL;
+    }
+#else
+    if (slave > 1) {
+        ::close(slave);
+        slave = -1;
+    }
+    if (master > -1) {
+        ::close(master);
+        master = -1;
+    }
+#endif
+    emit s_closed();
+}
+
+void SimpleTerminal::ttynew() {
+#ifdef Q_OS_WIN
+    HANDLE hPipePTYIn = INVALID_HANDLE_VALUE;
+    HANDLE hPipePTYOut = INVALID_HANDLE_VALUE;
+    HANDLE hPipePseudoIn = INVALID_HANDLE_VALUE;
+    HANDLE hPipePseudoOut = INVALID_HANDLE_VALUE;
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = NULL;
+    sa.bInheritHandle = TRUE;
+
+    if (!CreatePipe(&hPipePseudoIn, &hPipePTYIn, &sa, 0)) {
+        emit s_error("Failed to create ConPTY input pipe.");
+        return;
+    }
+    if (!CreatePipe(&hPipePTYOut, &hPipePseudoOut, &sa, 0)) {
+        CloseHandle(hPipePseudoIn);
+        CloseHandle(hPipePTYIn);
+        emit s_error("Failed to create ConPTY output pipe.");
+        return;
+    }
+
+    COORD consoleSize;
+    consoleSize.X = static_cast<SHORT>(term.col);
+    consoleSize.Y = static_cast<SHORT>(term.row);
+
+    HRESULT hr = CreatePseudoConsole(consoleSize, hPipePTYIn, hPipePTYOut, 0, &m_hPC);
+    if (FAILED(hr)) {
+        CloseHandle(hPipePTYIn);
+        CloseHandle(hPipePTYOut);
+        CloseHandle(hPipePseudoIn);
+        CloseHandle(hPipePseudoOut);
+        emit s_error("Failed to create pseudo console.");
+        return;
+    }
+
+    STARTUPINFOEXW startupInfo;
+    ZeroMemory(&startupInfo, sizeof(STARTUPINFOEXW));
+    startupInfo.StartupInfo.cb = sizeof(STARTUPINFOEXW);
+
+    SIZE_T attributeListSize = 0;
+    InitializeProcThreadAttributeList(NULL, 1, 0, &attributeListSize);
+    startupInfo.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST) malloc(attributeListSize);
+    if (!startupInfo.lpAttributeList) {
+        ClosePseudoConsole(m_hPC);
+        CloseHandle(hPipePseudoIn);
+        CloseHandle(hPipePseudoOut);
+        emit s_error("Failed to allocate attribute list.");
+        return;
+    }
+
+    if (!InitializeProcThreadAttributeList(startupInfo.lpAttributeList, 1, 0, &attributeListSize)) {
+        free(startupInfo.lpAttributeList);
+        ClosePseudoConsole(m_hPC);
+        CloseHandle(hPipePseudoIn);
+        CloseHandle(hPipePseudoOut);
+        emit s_error("Failed to initialize attribute list.");
+        return;
+    }
+
+    if (!UpdateProcThreadAttribute(
+            startupInfo.lpAttributeList,
+            0,
+            PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE,
+            m_hPC,
+            sizeof(HPCON),
+            NULL,
+            NULL)) {
+        free(startupInfo.lpAttributeList);
+        ClosePseudoConsole(m_hPC);
+        CloseHandle(hPipePseudoIn);
+        CloseHandle(hPipePseudoOut);
+        emit s_error("Failed to update proc thread attribute.");
+        return;
+    }
+
+    QString shellPath = qEnvironmentVariable("COMSPEC");
+    if (shellPath.isEmpty()) {
+        shellPath = "cmd.exe";
+    }
+
+    QByteArray shellBytes = shellPath.toUtf8();
+    WCHAR wideCommandLine[256];
+    MultiByteToWideChar(CP_UTF8, 0, shellBytes.constData(), -1, wideCommandLine, 256);
+
+    PROCESS_INFORMATION processInfo;
+    ZeroMemory(&processInfo, sizeof(PROCESS_INFORMATION));
+
+    if (!CreateProcessW(
+            NULL,
+            wideCommandLine,
+            NULL,
+            NULL,
+            TRUE,
+            EXTENDED_STARTUPINFO_PRESENT,
+            NULL,
+            NULL,
+            &startupInfo.StartupInfo,
+            &processInfo)) {
+        DWORD errorCode = GetLastError();
+        free(startupInfo.lpAttributeList);
+        ClosePseudoConsole(m_hPC);
+        CloseHandle(hPipePseudoIn);
+        CloseHandle(hPipePseudoOut);
+        emit s_error("Failed to create process. Error code: " + QString::number(errorCode));
+        return;
+    }
+
+    m_hPipeIn  = hPipePseudoIn;
+    m_hPipeOut = hPipePseudoOut;
+    processId  = processInfo.dwProcessId;
+
+    CloseHandle(hPipePTYIn);
+    CloseHandle(hPipePTYOut);
+    CloseHandle(processInfo.hProcess);
+    CloseHandle(processInfo.hThread);
+    free(startupInfo.lpAttributeList);
+#else
+    master = -1;
+    slave  = -1;
+
+    if (::openpty(&master, &slave, NULL, NULL, NULL) < 0) {
+        emit s_error("Could not open new file descriptor.");
+        return;
+    }
+
+    switch (processId = fork()) {
+    case -1:
+        closePty();
+        emit s_error("Could not fork process.");
+        return;
+    case 0:
+        ::close(master);
+        ::setsid();
+        ::dup2(slave, 0);
+        ::dup2(slave, 1);
+        ::dup2(slave, 2);
+        if (::ioctl(slave, TIOCSCTTY, NULL) < 0) {
+            closePty();
+            emit s_error("Error setting the controlling terminal.");
+            return;
+        }
+        if (slave > 2) {
+            ::close(slave);
+        }
+#ifdef __OpenBSD__
+        if (::pledge("stdio getpw proc exec", NULL) == -1) {
+            closePty();
+            emit s_error("Error on pledge.");
+            return;
+        }
+#endif
+        execsh();
+        break;
+    default:
+#ifdef __OpenBSD__
+        if (::pledge("stdio rpath tty proc", NULL) == -1) {
+            closePty();
+            emit s_error("Error on pledge.");
+            return;
+        }
+#endif
+        ::close(slave);
+        break;
+    }
+#endif
+}
+
+void SimpleTerminal::execsh() {
+#ifndef Q_OS_WIN
+    const struct passwd *pw;
+    errno = 0;
+    if ((pw = ::getpwuid(getuid())) == NULL) {
+        closePty();
+        if (errno) {
+            emit s_error("Error on getpwuid.");
+        } else {
+            emit s_error("Could not retrieve user identity.");
+        }
+        return;
+    }
+
+    QByteArray shell = qgetenv("SHELL");
+    if (shell.size() == 0) {
+        shell = (pw->pw_shell[0]) ? pw->pw_shell : "/bin/sh";
+    }
+
+    ::unsetenv("COLUMNS");
+    ::unsetenv("LINES");
+    ::unsetenv("TERMCAP");
+    ::setenv("LOGNAME", pw->pw_name, 1);
+    ::setenv("USER",    pw->pw_name, 1);
+    ::setenv("SHELL",   shell,        1);
+    ::setenv("HOME",    pw->pw_dir,   1);
+    ::setenv("TERM",    "xterm-256color", 1);
+
+    char *args[] = { shell.data(), NULL, NULL };
+    ::execvp(shell.constData(), args);
+#endif
+}
+
+size_t SimpleTerminal::ttyread() {
+    int ret = 0;
+    int written = 0;
+
+#ifdef Q_OS_WIN
+    if (m_hPipeOut == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+
+    DWORD bytesAvailable = 0;
+    if (!PeekNamedPipe(m_hPipeOut, NULL, 0, NULL, &bytesAvailable, NULL)) {
+        return 0;
+    }
+    if (bytesAvailable == 0) {
+        return 0;
+    }
+
+    DWORD bytesRead = 0;
+    BOOL readResult = ReadFile(
+        m_hPipeOut,
+        readBuf + readBufPos,
+        readBufSize - readBufPos,
+        &bytesRead,
+        NULL
+        );
+    ret = readResult ? static_cast<int>(bytesRead) : -1;
+#else
+    ret = ::read(master, readBuf + readBufPos, readBufSize - readBufPos);
+#endif
+
+    switch (ret) {
+    case 0:
+        return 0;
+    case -1:
+        closePty();
+        emit s_error("Could not read from shell.");
+        return 0;
+    default:
+        readBufPos += ret;
+        written = twrite(readBuf, readBufPos, 0);
+        readBufPos -= written;
+        if (readBufPos > 0) {
+            ::memmove(readBuf, readBuf + written, readBufPos);
+        }
+        emit s_updateView(&term);
+        return ret;
+    }
+}
+
+void SimpleTerminal::tresize(int col, int row) {
+    int i, j;
+    int minrow = MIN(row, term.row);
+    int mincol = MIN(col, term.col);
+    int *bp;
+    TCursor c;
+
+    if (col < 1 || row < 1) {
+        emit s_error("tresize: error resizing to x: " + QString::number(col) + ", y: " + QString::number(row));
+        return;
+    }
+
+    for (i = 0; i <= term.c.y - row; i++) {
+        free(term.line[i]);
+        free(term.alt[i]);
+    }
+    if (i > 0) {
+        memmove(term.line, term.line + i, row * sizeof(Line));
+        memmove(term.alt,  term.alt  + i, row * sizeof(Line));
+    }
+    for (i += row; i < term.row; i++) {
+        free(term.line[i]);
+        free(term.alt[i]);
+    }
+
+    term.line  = (Line *) realloc(term.line,  row * sizeof(Line));
+    term.alt   = (Line *) realloc(term.alt,   row * sizeof(Line));
+    term.dirty = (int *)  realloc(term.dirty, row * sizeof(*term.dirty));
+    term.tabs  = (int *)  realloc(term.tabs,  col * sizeof(*term.tabs));
+
+    if (term.line == NULL || term.alt == NULL || term.dirty == NULL || term.tabs == NULL) {
+        emit s_error("Error on resize");
+        return;
+    }
+
+    for (i = 0; i < HISTSIZE; i++) {
+        term.hist[i] = (Line) ::realloc(term.hist[i], col * sizeof(Glyph));
+        if (term.hist[i] == NULL) {
+            emit s_error("Error on resize");
+            return;
+        }
+        for (j = mincol; j < col; j++) {
+            term.hist[i][j] = term.c.attr;
+            term.hist[i][j].u = ' ';
+        }
+    }
+
+    for (i = 0; i < minrow; i++) {
+        term.line[i] = (Glyph_ *) realloc(term.line[i], col * sizeof(Glyph));
+        term.alt[i]  = (Glyph_ *) realloc(term.alt[i],  col * sizeof(Glyph));
+        if (term.line[i] == NULL || term.alt[i] == NULL) {
+            emit s_error("Error on resize");
+            return;
+        }
+    }
+
+    for (; i < row; i++) {
+        term.line[i] = (Glyph_ *) malloc(col * sizeof(Glyph));
+        term.alt[i]  = (Glyph_ *) malloc(col * sizeof(Glyph));
+        if (term.line[i] == NULL || term.alt[i] == NULL) {
+            emit s_error("Error on resize");
+            return;
+        }
+    }
+
+    if (col > term.col) {
+        bp = term.tabs + term.col;
+        memset(bp, 0, sizeof(*term.tabs) * (col - term.col));
+        while (--bp > term.tabs && !*bp)
+            /* nothing */ ;
+        for (bp += tabspaces; bp < term.tabs + col; bp += tabspaces)
+            *bp = 1;
+    }
+
+    term.col = col;
+    term.row = row;
+    tsetscroll(0, row - 1);
+    tmoveto(term.c.x, term.c.y);
+
+    c = term.c;
+    for (i = 0; i < 2; i++) {
+        if (mincol < col && 0 < minrow)
+            tclearregion(mincol, 0, col - 1, minrow - 1);
+        if (0 < col && minrow < row)
+            tclearregion(0, minrow, col - 1, row - 1);
+        tswapscreen();
+        tcursor(CURSOR_LOAD);
+    }
+    term.c = c;
+}
+
+void SimpleTerminal::tputc(Rune u) {
+    char c[UTF_SIZ];
+    int control;
+    int width, len;
+    Glyph *gp;
+
+    control = ISCONTROL(u);
+    if (u < 127 || !IS_SET(term.mode, MODE_UTF8)) {
+        c[0] = u;
+        width = len = 1;
+    } else {
+        len = utf8encode(u, c);
+        if (!control && (width = wcwidth(u)) == -1)
+            width = 1;
+    }
+
+    if (IS_SET(term.mode, MODE_PRINT))
+        tprinter(c, len);
+
+    if (term.esc & ESC_STR) {
+        if (u == '\a' || u == 030 || u == 032 || u == 033 || ISCONTROLC1(u)) {
+            term.esc &= ~(ESC_START | ESC_STR);
+            term.esc |= ESC_STR_END;
+            goto check_control_code;
+        }
+        if (strescseq.len + len >= strescseq.siz) {
+            if (strescseq.siz > (SIZE_MAX - UTF_SIZ) / 2) return;
+            strescseq.siz *= 2;
+            strescseq.buf = (char *) realloc(strescseq.buf, strescseq.siz);
+            if (strescseq.buf == NULL) {
+                emit s_error("Could not realloc buffer.");
+                return;
+            }
+        }
+        memmove(&strescseq.buf[strescseq.len], c, len);
+        strescseq.len += len;
+        return;
+    }
+
+check_control_code:
+    if (control) {
+        if (IS_SET(term.mode, MODE_UTF8) && ISCONTROLC1(u))
+            return;
+        tcontrolcode(u);
+        if (!term.esc)
+            term.lastc = 0;
+        return;
+    } else if (term.esc & ESC_START) {
+        if (term.esc & ESC_CSI) {
+            csiescseq.buf[csiescseq.len++] = u;
+            if (BETWEEN(u, 0x40, 0x7E) || csiescseq.len >= sizeof(csiescseq.buf) - 1) {
+                term.esc = 0;
+                csiparse();
+                csihandle();
+            }
+            return;
+        } else if (term.esc & ESC_UTF8) {
+            tdefutf8(u);
+        } else if (term.esc & ESC_ALTCHARSET) {
+            tdeftran(u);
+        } else if (term.esc & ESC_TEST) {
+            tdectest(u);
+        } else {
+            if (!eschandle(u))
+                return;
+        }
+        term.esc = 0;
+        return;
+    }
+    if (selected(term.c.x, term.c.y))
+        selclear();
+
+    gp = &term.line[term.c.y][term.c.x];
+    if (IS_SET(term.mode, MODE_WRAP) && (term.c.state & CURSOR_WRAPNEXT)) {
+        gp->mode |= ATTR_WRAP;
+        tnewline(1);
+        gp = &term.line[term.c.y][term.c.x];
+    }
+
+    if (IS_SET(term.mode, MODE_INSERT) && term.c.x + width < term.col) {
+        memmove(gp+width, gp, (term.col - term.c.x - width) * sizeof(Glyph));
+        gp->mode &= ~ATTR_WIDE;
+    }
+
+    if (term.c.x + width > term.col) {
+        if (IS_SET(term.mode, MODE_WRAP))
+            tnewline(1);
+        else
+            tmoveto(term.col - width, term.c.y);
+        gp = &term.line[term.c.y][term.c.x];
+    }
+
+    tsetchar(u, &term.c.attr, term.c.x, term.c.y);
+    term.lastc = u;
+
+    if (width == 2) {
+        gp->mode |= ATTR_WIDE;
+        if (term.c.x + 1 < term.col) {
+            if (gp[1].mode == ATTR_WIDE && term.c.x + 2 < term.col) {
+                gp[2].u = ' ';
+                gp[2].mode &= ~ATTR_WDUMMY;
+            }
+            gp[1].u = '\0';
+            gp[1].mode = ATTR_WDUMMY;
+        }
+    }
+    if (term.c.x + width < term.col)
+        tmoveto(term.c.x + width, term.c.y);
+    else
+        term.c.state |= CURSOR_WRAPNEXT;
+}
+
+int SimpleTerminal::twrite(const char *buf, int size, int show_ctrl) {
+    int charsize;
+    Rune u;
+    int n;
+
+    for (n = 0; n < size; n += charsize) {
+        if (IS_SET(term.mode, MODE_UTF8)) {
+            charsize = utf8decode(buf + n, &u, size - n);
+            if (charsize == 0)
+                break;
+        } else {
+            u = buf[n] & 0xFF;
+            charsize = 1;
+        }
+        if (show_ctrl && ISCONTROL(u)) {
+            if (u & 0x80) {
+                u &= 0x7f;
+                tputc('^');
+                tputc('[');
+            } else if (u != '\n' && u != '\r' && u != '\t') {
+                u ^= 0x40;
+                tputc('^');
+            }
+        }
+        tputc(u);
+    }
+    return n;
+}
+
+void SimpleTerminal::ttywrite(const char *s, size_t n, int may_echo) {
+    const char *next;
+    kscrolldown(term.scr);
+    if (may_echo && IS_SET(term.mode, MODE_ECHO))
+        twrite(s, n, 1);
+    if (!IS_SET(term.mode, MODE_CRLF)) {
+        ttywriteraw(s, n);
+        return;
+    }
+    while (n > 0) {
+        if (*s == '\r') {
+            next = s + 1;
+            ttywriteraw("\r\n", 2);
+        } else {
+            next = (char *) memchr(s, '\r', n);
+            DEFAULT(next, s + n);
+            ttywriteraw(s, next - s);
+        }
+        n -= next - s;
+        s = next;
+    }
+}
+
+void SimpleTerminal::ttywriteraw(const char *s, size_t n) {
+#ifdef Q_OS_WIN
+    DWORD written = 0;
+    while (n > 0) {
+        size_t chunk = (n < 256) ? n : 256;
+        if (!WriteFile(m_hPipeIn, s, static_cast<DWORD>(chunk), &written, NULL))
+            break;
+        s += written;
+        n -= written;
+    }
+#else
+    fd_set wfd, rfd;
+    ssize_t r;
+    size_t lim = 256;
+    while (n > 0) {
+        FD_ZERO(&wfd);
+        FD_ZERO(&rfd);
+        FD_SET(master, &wfd);
+        FD_SET(master, &rfd);
+        if (pselect(master + 1, &rfd, &wfd, NULL, NULL, NULL) < 0) {
+            if (errno == EINTR)
+                continue;
+            emit s_error("Pselect failed in ttywriteraw");
+            return;
+        }
+        if (FD_ISSET(master, &wfd)) {
+            if ((r = write(master, s, (n < lim) ? n : lim)) < 0) {
+                emit s_error("Error on write in ttywriteraw.");
+                return;
+            }
+            if ((size_t)r < n) {
+                if (n < lim)
+                    lim = ttyread();
+                n -= r;
+                s += r;
+            } else {
+                break;
+            }
+        }
+        if (FD_ISSET(master, &rfd))
+            lim = ttyread();
+    }
+#endif
+}
+
+size_t SimpleTerminal::utf8decode(const char *c, Rune *u, size_t clen) {
+    size_t i, j, len, type;
+    Rune udecoded;
+    *u = UTF_INVALID;
+    if (!clen) return 0;
+    udecoded = utf8decodebyte(c[0], &len);
+    if (!BETWEEN(len, 1, UTF_SIZ)) return 1;
+    for (i = 1, j = 1; i < clen && j < len; ++i, ++j) {
+        udecoded = (udecoded << 6) | utf8decodebyte(c[i], &type);
+        if (type != 0) return j;
+    }
+    if (j < len) return 0;
+    *u = udecoded;
+    utf8validate(u, len);
+    return len;
+}
+
+Rune SimpleTerminal::utf8decodebyte(char c, size_t *i) {
+    for (*i = 0; *i < LEN(utfmask); ++(*i))
+        if (((uchar)c & utfmask[*i]) == utfbyte[*i])
+            return (uchar)c & ~utfmask[*i];
+    return 0;
+}
+
+size_t SimpleTerminal::utf8encode(Rune u, char *c) {
+    size_t len, i;
+    len = utf8validate(&u, 0);
+    if (len > UTF_SIZ) return 0;
+    for (i = len - 1; i != 0; --i) {
+        c[i] = utf8encodebyte(u, 0);
+        u >>= 6;
+    }
+    c[0] = utf8encodebyte(u, len);
+    return len;
+}
+
+char SimpleTerminal::utf8encodebyte(Rune u, size_t i) {
+    return utfbyte[i] | (u & ~utfmask[i]);
+}
+
+size_t SimpleTerminal::utf8validate(Rune *u, size_t i) {
+    if (!BETWEEN(*u, utfmin[i], utfmax[i]) || BETWEEN(*u, 0xD800, 0xDFFF))
+        *u = UTF_INVALID;
+    for (i = 1; *u > utfmax[i]; ++i)
+        ;
+    return i;
+}
+
+void SimpleTerminal::tcontrolcode(uchar ascii) {
+    switch (ascii) {
+    case '\t':   tputtab(1); return;
+    case '\b':   tmoveto(term.c.x - 1, term.c.y); return;
+    case '\r':   tmoveto(0, term.c.y); return;
+    case '\f':
+    case '\v':
+    case '\n':
+        tnewline(IS_SET(term.mode, MODE_CRLF));
+        return;
+    case '\a':
+        if (term.esc & ESC_STR_END)
+            strhandle();
+        else
+            bell();
+        break;
+    case '\033':
+        csireset();
+        term.esc &= ~(ESC_CSI | ESC_ALTCHARSET | ESC_TEST);
+        term.esc |= ESC_START;
+        return;
+    case '\016':
+    case '\017':
+        term.charset = 1 - (ascii - '\016');
+        return;
+    case '\032':
+        tsetchar('?', &term.c.attr, term.c.x, term.c.y);
+    case '\030':
+        csireset();
+        break;
+    case '\005':
+    case '\000':
+    case '\021':
+    case '\023':
+    case 0177:
+        return;
+    case 0x80:
+    case 0x81:
+    case 0x82:
+    case 0x83:
+    case 0x84:
+        break;
+    case 0x85:
+        tnewline(1);
+        break;
+    case 0x86:
+    case 0x87:
+        break;
+    case 0x88:
+        term.tabs[term.c.x] = 1;
+        break;
+    case 0x89:
+    case 0x8a:
+    case 0x8b:
+    case 0x8c:
+    case 0x8d:
+    case 0x8e:
+    case 0x8f:
+    case 0x91:
+    case 0x92:
+    case 0x93:
+    case 0x94:
+    case 0x95:
+    case 0x96:
+    case 0x97:
+    case 0x98:
+    case 0x99:
+        break;
+    case 0x9a:
+        ttywrite(vtiden, strlen(vtiden), 0);
+        break;
+    case 0x9b:
+    case 0x9c:
+        break;
+    case 0x90:
+    case 0x9d:
+    case 0x9e:
+    case 0x9f:
+        tstrsequence(ascii);
+        return;
+    }
+    term.esc &= ~(ESC_STR_END | ESC_STR);
+}
+
+void SimpleTerminal::tputtab(int n) {
+    uint x = term.c.x;
+    if (n > 0) {
+        while (x < term.col && n--)
+            for (++x; x < term.col && !term.tabs[x]; ++x)
+                ;
+    } else if (n < 0) {
+        while (x > 0 && n++)
+            for (--x; x > 0 && !term.tabs[x]; --x)
+                ;
+    }
+    term.c.x = LIMIT(x, 0, term.col - 1);
+}
+
+void SimpleTerminal::tmoveto(int x, int y) {
+    int miny, maxy;
+    if (term.c.state & CURSOR_ORIGIN) {
+        miny = term.top;
+        maxy = term.bot;
+    } else {
+        miny = 0;
+        maxy = term.row - 1;
+    }
+    term.c.state &= ~CURSOR_WRAPNEXT;
+    term.c.x = LIMIT(x, 0, term.col - 1);
+    term.c.y = LIMIT(y, miny, maxy);
+}
+
+void SimpleTerminal::tstrsequence(uchar c) {
+    switch (c) {
+    case 0x90: c = 'P'; break;
+    case 0x9f: c = '_'; break;
+    case 0x9e: c = '^'; break;
+    case 0x9d: c = ']'; break;
+    }
+    strreset();
+    strescseq.type = c;
+    term.esc |= ESC_STR;
+}
+
+void SimpleTerminal::strreset(void) {
+    char *buf = (char *) realloc(strescseq.buf, STR_BUF_SIZ);
+    if (buf == NULL) {
+        emit s_error("Error while realloc in strreset.");
+        return;
+    }
+    strescseq = (STREscape) { .buf = buf, .siz = STR_BUF_SIZ };
+}
+
+void SimpleTerminal::tnewline(int first_col) {
+    int y = term.c.y;
+    if (y == term.bot)
+        tscrollup(term.top, 1, 1);
+    else
+        y++;
+    tmoveto(first_col ? 0 : term.c.x, y);
+}
+
+void SimpleTerminal::tclearregion(int x1, int y1, int x2, int y2) {
+    int x, y, temp;
+    Glyph *gp;
+    if (x1 > x2) { temp = x1; x1 = x2; x2 = temp; }
+    if (y1 > y2) { temp = y1; y1 = y2; y2 = temp; }
+    LIMIT(x1, 0, term.col - 1);
+    LIMIT(x2, 0, term.col - 1);
+    LIMIT(y1, 0, term.row - 1);
+    LIMIT(y2, 0, term.row - 1);
+    for (y = y1; y <= y2; y++) {
+        term.dirty[y] = 1;
+        for (x = x1; x <= x2; x++) {
+            gp = &term.line[y][x];
+            if (selected(x, y))
+                selclear();
+            gp->fg = term.c.attr.fg;
+            gp->bg = term.c.attr.bg;
+            gp->mode = 0;
+            gp->u = ' ';
+        }
+    }
+}
+
+int SimpleTerminal::selected(int x, int y) {
+    if (sel.mode == SEL_EMPTY || sel.ob.x == -1 ||
+        sel.alt != IS_SET(term.mode, MODE_ALTSCREEN))
+        return 0;
+    if (sel.type == SEL_RECTANGULAR)
+        return BETWEEN(y, sel.nb.y, sel.ne.y) && BETWEEN(x, sel.nb.x, sel.ne.x);
+    return BETWEEN(y, sel.nb.y, sel.ne.y)
+           && (y != sel.nb.y || x >= sel.nb.x)
+           && (y != sel.ne.y || x <= sel.ne.x);
+}
+
+void SimpleTerminal::selclear(void) {
+    if (sel.ob.x == -1) return;
+    sel.mode = SEL_IDLE;
+    sel.ob.x = -1;
+    tsetdirt(sel.nb.y, sel.ne.y);
+}
+
+void SimpleTerminal::selscroll(int orig, int n) {
+    if (sel.ob.x == -1 || sel.alt != IS_SET(term.mode, MODE_ALTSCREEN))
+        return;
+    sel.ob.y += n;
+    sel.oe.y += n;
+    selnormalize();
+}
+
+void SimpleTerminal::selnormalize(void) {
+    int i;
+    if (sel.type == SEL_REGULAR && sel.ob.y != sel.oe.y) {
+        sel.nb.x = sel.ob.y < sel.oe.y ? sel.ob.x : sel.oe.x;
+        sel.ne.x = sel.ob.y < sel.oe.y ? sel.oe.x : sel.ob.x;
+    } else {
+        sel.nb.x = MIN(sel.ob.x, sel.oe.x);
+        sel.ne.x = MAX(sel.ob.x, sel.oe.x);
+    }
+    sel.nb.y = MIN(sel.ob.y, sel.oe.y);
+    sel.ne.y = MAX(sel.ob.y, sel.oe.y);
+    selsnap(&sel.nb.x, &sel.nb.y, -1);
+    selsnap(&sel.ne.x, &sel.ne.y, +1);
+    if (sel.type == SEL_RECTANGULAR)
+        return;
+    i = tlinelen(sel.nb.y);
+    if (i < sel.nb.x) sel.nb.x = i;
+    if (tlinelen(sel.ne.y) <= sel.ne.x) sel.ne.x = term.col - 1;
+}
+
+void SimpleTerminal::tsetdirt(int top, int bot) {
+    int i;
+    LIMIT(top, 0, term.row - 1);
+    LIMIT(bot, 0, term.row - 1);
+    for (i = top; i <= bot; i++)
+        term.dirty[i] = 1;
+}
+
+void SimpleTerminal::strhandle(void) {
+    char *p = NULL, *dec;
+    int j, narg, par;
+    const struct { unsigned int idx; const char *str; } osc_table[] = {
+        { defaultfg, "foreground" },
+        { defaultbg, "background" },
+        { defaultcs, "cursor" }
+    };
+    term.esc &= ~(ESC_STR_END | ESC_STR);
+    strparse();
+    par = (narg = strescseq.narg) ? atoi(strescseq.args[0]) : 0;
+
+    switch (strescseq.type) {
+    case ']':
+        switch (par) {
+        case 0:
+        case 1:
+        case 2:
+            return;
+        case 52:
+            if (narg > 2 && allowwindowops) {
+                dec = base64dec(strescseq.args[2]);
+                if (dec) {
+                    xsetsel(dec);
+                    xclipcopy();
+                } else {
+                    fprintf(stderr, "erresc: invalid base64\n");
+                }
+            }
+            return;
+        case 10:
+        case 11:
+        case 12:
+            if (narg < 2)
+                break;
+            p = strescseq.args[1];
+            if ((j = par - 10) < 0 || j >= LEN(osc_table))
+                break;
+            if (!strcmp(p, "?")) {
+                osc_color_response(par, osc_table[j].idx, 0);
+            } else if (xsetcolorname(osc_table[j].idx, p)) {
+                fprintf(stderr, "erresc: invalid %s color: %s\n", osc_table[j].str, p);
+            } else {
+                tfulldirt();
+            }
+            return;
+        case 4:
+            if (narg < 3) break;
+            p = strescseq.args[2];
+        case 104:
+            j = (narg > 1) ? atoi(strescseq.args[1]) : -1;
+            if (p && !strcmp(p, "?")) {
+                osc_color_response(j, 0, 1);
+            } else if (xsetcolorname(j, p)) {
+                if (par == 104 && narg <= 1) {
+                    xloadcols();
+                    return;
+                }
+                fprintf(stderr, "erresc: invalid color j=%d, p=%s\n", j, p ? p : "(null)");
+            } else {
+                tfulldirt();
+            }
+            return;
+        }
+        break;
+    case 'k':
+    case 'P':
+    case '_':
+    case '^':
+        return;
+    }
+    fprintf(stderr, "erresc: unknown str ");
+    strdump();
+}
+
+void SimpleTerminal::strparse(void) {
+    int c;
+    char *p = strescseq.buf;
+    strescseq.narg = 0;
+    strescseq.buf[strescseq.len] = '\0';
+    if (*p == '\0') return;
+    while (strescseq.narg < STR_ARG_SIZ) {
+        strescseq.args[strescseq.narg++] = p;
+        while ((c = *p) != ';' && c != '\0')
+            ++p;
+        if (c == '\0') return;
+        *p++ = '\0';
+    }
+}
+
+void SimpleTerminal::strdump(void) {
+    size_t i;
+    uint c;
+    fprintf(stderr, "ESC%c", strescseq.type);
+    for (i = 0; i < strescseq.len; i++) {
+        c = strescseq.buf[i] & 0xff;
+        if (c == '\0') {
+            putc('\n', stderr);
+            return;
+        } else if (isprint(c)) {
+            putc(c, stderr);
+        } else if (c == '\n') {
+            fprintf(stderr, "(\\n)");
+        } else if (c == '\r') {
+            fprintf(stderr, "(\\r)");
+        } else if (c == 0x1b) {
+            fprintf(stderr, "(\\e)");
+        } else {
+            fprintf(stderr, "(%02x)", c);
+        }
+    }
+    fprintf(stderr, "ESC\\\n");
+}
+
+void SimpleTerminal::tsetchar(Rune u, const Glyph *attr, int x, int y) {
+    static const char *vt100_0[62] = {
+        "↑","↓","→","←","█","▚","☃", 0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0," ",
+        "◆","▒","␉","␌","␍","␊","°","±",
+        "␤","␋","┘","┐","┌","└","┼","⎺",
+        "⎻","─","⎼","⎽","├","┤","┴","┬",
+        "│","≤","≥","π","≠","£","·",
+    };
+    if (term.trantbl[term.charset] == CS_GRAPHIC0 &&
+        BETWEEN(u, 0x41, 0x7e) && vt100_0[u - 0x41])
+        utf8decode(vt100_0[u - 0x41], &u, UTF_SIZ);
+    if (term.line[y][x].mode & ATTR_WIDE) {
+        if (x + 1 < term.col) {
+            term.line[y][x + 1].u = ' ';
+            term.line[y][x + 1].mode &= ~ATTR_WDUMMY;
+        }
+    } else if (term.line[y][x].mode & ATTR_WDUMMY) {
+        term.line[y][x - 1].u = ' ';
+        term.line[y][x - 1].mode &= ~ATTR_WIDE;
+    }
+    term.dirty[y] = 1;
+    term.line[y][x] = *attr;
+    term.line[y][x].u = u;
+}
+
+void SimpleTerminal::csireset(void) {
+    memset(&csiescseq, 0, sizeof(csiescseq));
+}
+
+void SimpleTerminal::csiparse(void) {
+    char *p = csiescseq.buf, *np;
+    long int v;
+    int sep = ';';
+    csiescseq.narg = 0;
+    if (*p == '?') {
+        csiescseq.priv = 1;
+        p++;
+    }
+    csiescseq.buf[csiescseq.len] = '\0';
+    while (p < csiescseq.buf + csiescseq.len) {
+        np = NULL;
+        v = strtol(p, &np, 10);
+        if (np == p) v = 0;
+        if (v == LONG_MAX || v == LONG_MIN) v = -1;
+        csiescseq.arg[csiescseq.narg++] = v;
+        p = np;
+        if (sep == ';' && *p == ':')
+            sep = ':';
+        if (*p != sep || csiescseq.narg == ESC_ARG_SIZ)
+            break;
+        p++;
+    }
+    csiescseq.mode[0] = *p++;
+    csiescseq.mode[1] = (p < csiescseq.buf + csiescseq.len) ? *p : '\0';
+}
+
+void SimpleTerminal::csihandle(void) {
+    char buf[40];
+    int len;
+    switch (csiescseq.mode[0]) {
+    default:
+    unknown:
+        fprintf(stderr, "erresc: unknown csi ");
+        csidump();
+        break;
+    case '@': DEFAULT(csiescseq.arg[0], 1); tinsertblank(csiescseq.arg[0]); break;
+    case 'A': DEFAULT(csiescseq.arg[0], 1); tmoveto(term.c.x, term.c.y - csiescseq.arg[0]); break;
+    case 'B':
+    case 'e': DEFAULT(csiescseq.arg[0], 1); tmoveto(term.c.x, term.c.y + csiescseq.arg[0]); break;
+    case 'i':
+        switch (csiescseq.arg[0]) {
+        case 0: tdump(); break;
+        case 1: tdumpline(term.c.y); break;
+        case 2: tdumpsel(); break;
+        case 4: term.mode &= ~MODE_PRINT; break;
+        case 5: term.mode |= MODE_PRINT; break;
+        }
+        break;
+    case 'c': if (csiescseq.arg[0] == 0) ttywrite(vtiden, strlen(vtiden), 0); break;
+    case 'b': LIMIT(csiescseq.arg[0], 1, 65535); if (term.lastc) while (csiescseq.arg[0]-- > 0) tputc(term.lastc); break;
+    case 'C':
+    case 'a': DEFAULT(csiescseq.arg[0], 1); tmoveto(term.c.x + csiescseq.arg[0], term.c.y); break;
+    case 'D': DEFAULT(csiescseq.arg[0], 1); tmoveto(term.c.x - csiescseq.arg[0], term.c.y); break;
+    case 'E': DEFAULT(csiescseq.arg[0], 1); tmoveto(0, term.c.y + csiescseq.arg[0]); break;
+    case 'F': DEFAULT(csiescseq.arg[0], 1); tmoveto(0, term.c.y - csiescseq.arg[0]); break;
+    case 'g':
+        switch (csiescseq.arg[0]) {
+        case 0: term.tabs[term.c.x] = 0; break;
+        case 3: memset(term.tabs, 0, term.col * sizeof(*term.tabs)); break;
+        default: goto unknown;
+        }
+        break;
+    case 'G':
+    case '`': DEFAULT(csiescseq.arg[0], 1); tmoveto(csiescseq.arg[0] - 1, term.c.y); break;
+    case 'H':
+    case 'f': DEFAULT(csiescseq.arg[0], 1); DEFAULT(csiescseq.arg[1], 1); tmoveato(csiescseq.arg[1] - 1, csiescseq.arg[0] - 1); break;
+    case 'I': DEFAULT(csiescseq.arg[0], 1); tputtab(csiescseq.arg[0]); break;
+    case 'J':
+        switch (csiescseq.arg[0]) {
+        case 0: tclearregion(term.c.x, term.c.y, term.col - 1, term.c.y); if (term.c.y < term.row - 1) tclearregion(0, term.c.y + 1, term.col - 1, term.row - 1); break;
+        case 1: if (term.c.y > 1) tclearregion(0, 0, term.col - 1, term.c.y - 1); tclearregion(0, term.c.y, term.c.x, term.c.y); break;
+        case 2: tclearregion(0, 0, term.col - 1, term.row - 1); break;
+        case 3: term.scr = 0; term.histi = 0; break;
+        default: goto unknown;
+        }
+        break;
+    case 'K':
+        switch (csiescseq.arg[0]) {
+        case 0: tclearregion(term.c.x, term.c.y, term.col - 1, term.c.y); break;
+        case 1: tclearregion(0, term.c.y, term.c.x, term.c.y); break;
+        case 2: tclearregion(0, term.c.y, term.col - 1, term.c.y); break;
+        }
+        break;
+    case 'S': if (csiescseq.priv) break; DEFAULT(csiescseq.arg[0], 1); tscrollup(term.top, csiescseq.arg[0], 0); break;
+    case 'T': DEFAULT(csiescseq.arg[0], 1); tscrolldown(term.top, csiescseq.arg[0], 0); break;
+    case 'L': DEFAULT(csiescseq.arg[0], 1); tinsertblankline(csiescseq.arg[0]); break;
+    case 'l': tsetmode(csiescseq.priv, 0, csiescseq.arg, csiescseq.narg); break;
+    case 'M': DEFAULT(csiescseq.arg[0], 1); tdeleteline(csiescseq.arg[0]); break;
+    case 'X': DEFAULT(csiescseq.arg[0], 1); tclearregion(term.c.x, term.c.y, term.c.x + csiescseq.arg[0] - 1, term.c.y); break;
+    case 'P': DEFAULT(csiescseq.arg[0], 1); tdeletechar(csiescseq.arg[0]); break;
+    case 'Z': DEFAULT(csiescseq.arg[0], 1); tputtab(-csiescseq.arg[0]); break;
+    case 'd': DEFAULT(csiescseq.arg[0], 1); tmoveato(term.c.x, csiescseq.arg[0] - 1); break;
+    case 'h': tsetmode(csiescseq.priv, 1, csiescseq.arg, csiescseq.narg); break;
+    case 'm': tsetattr(csiescseq.arg, csiescseq.narg); break;
+    case 'n':
+        switch (csiescseq.arg[0]) {
+        case 5: ttywrite("\033[0n", sizeof("\033[0n") - 1, 0); break;
+        case 6: len = snprintf(buf, sizeof(buf), "\033[%i;%iR", term.c.y + 1, term.c.x + 1); ttywrite(buf, len, 0); break;
+        default: goto unknown;
+        }
+        break;
+    case 'r': if (csiescseq.priv) goto unknown; DEFAULT(csiescseq.arg[0], 1); DEFAULT(csiescseq.arg[1], term.row); tsetscroll(csiescseq.arg[0] - 1, csiescseq.arg[1] - 1); tmoveato(0, 0); break;
+    case 's': tcursor(CURSOR_SAVE); break;
+    case 'u': tcursor(CURSOR_LOAD); break;
+    case ' ': if (csiescseq.mode[1] == 'q' && !xsetcursor(csiescseq.arg[0])) break; goto unknown;
+    }
+}
+
+void SimpleTerminal::tsetscroll(int t, int b) {
+    int temp;
+    LIMIT(t, 0, term.row - 1);
+    LIMIT(b, 0, term.row - 1);
+    if (t > b) { temp = t; t = b; b = temp; }
+    term.top = t;
+    term.bot = b;
+}
+
+void SimpleTerminal::tcursor(int mode) {
+    static TCursor c[2];
+    int alt = IS_SET(term.mode, MODE_ALTSCREEN);
+    if (mode == CURSOR_SAVE)
+        c[alt] = term.c;
+    else if (mode == CURSOR_LOAD) {
+        term.c = c[alt];
+        tmoveto(c[alt].x, c[alt].y);
+    }
+}
+
+void SimpleTerminal::csidump(void) {
+    size_t i;
+    uint c;
+    fprintf(stderr, "ESC[");
+    for (i = 0; i < csiescseq.len; i++) {
+        c = csiescseq.buf[i] & 0xff;
+        if (isprint(c)) putc(c, stderr);
+        else if (c == '\n') fprintf(stderr, "(\\n)");
+        else if (c == '\r') fprintf(stderr, "(\\r)");
+        else if (c == 0x1b) fprintf(stderr, "(\\e)");
+        else fprintf(stderr, "(%02x)", c);
+    }
+    putc('\n', stderr);
+}
+
+void SimpleTerminal::tdumpline(int n) {
+    char buf[UTF_SIZ];
+    const Glyph *bp, *end;
+    bp = &term.line[n][0];
+    end = &bp[MIN(tlinelen(n), term.col) - 1];
+    if (bp != end || bp->u != ' ') {
+        for (; bp <= end; ++bp)
+            tprinter(buf, utf8encode(bp->u, buf));
+    }
+    tprinter("\n", 1);
+}
+
+int SimpleTerminal::tlinelen(int y) {
+    int i = term.col;
+    if (TLINE(term, y)[i - 1].mode & ATTR_WRAP)
+        return i;
+    while (i > 0 && TLINE(term, y)[i - 1].u == ' ')
+        --i;
+    return i;
+}
+
+void SimpleTerminal::tdump(void) {
+    int i;
+    for (i = 0; i < term.row; ++i)
+        tdumpline(i);
+}
+
+void SimpleTerminal::tinsertblank(int n) {
+    int dst, src, size;
+    Glyph *line;
+    LIMIT(n, 0, term.col - term.c.x);
+    dst = term.c.x + n;
+    src = term.c.x;
+    size = term.col - dst;
+    line = term.line[term.c.y];
+    memmove(&line[dst], &line[src], size * sizeof(Glyph));
+    tclearregion(src, term.c.y, dst - 1, term.c.y);
+}
+
+void SimpleTerminal::tinsertblankline(int n) {
+    if (BETWEEN(term.c.y, term.top, term.bot))
+        tscrolldown(term.c.y, n, 0);
+}
+
+void SimpleTerminal::kscrolldown(int n) {
+    if (n < 0)
+        n = term.row + n;
+    if (n > term.scr)
+        n = term.scr;
+    if (term.scr > 0) {
+        term.scr -= n;
+        selscroll(0, -n);
+        tfulldirt();
+    }
+}
+
+void SimpleTerminal::kscrollup(int n) {
+    if (n < 0)
+        n = term.row + n;
+    if (term.scr <= HISTSIZE - n) {
+        term.scr += n;
+        selscroll(0, n);
+        tfulldirt();
+    }
+}
+
+void SimpleTerminal::tscrolldown(int orig, int n, int copyhist) {
+    int i;
+    Line temp;
+    LIMIT(n, 0, term.bot - orig + 1);
+    if (copyhist) {
+        term.histi = (term.histi - 1 + HISTSIZE) % HISTSIZE;
+        temp = term.hist[term.histi];
+        term.hist[term.histi] = term.line[term.bot];
+        term.line[term.bot] = temp;
+    }
+    tsetdirt(orig, term.bot - n);
+    tclearregion(0, term.bot - n + 1, term.col - 1, term.bot);
+    for (i = term.bot; i >= orig + n; i--) {
+        temp = term.line[i];
+        term.line[i] = term.line[i - n];
+        term.line[i - n] = temp;
+    }
+    if (term.scr == 0)
+        selscroll(orig, n);
+}
+
+void SimpleTerminal::tscrollup(int orig, int n, int copyhist) {
+    int i;
+    Line temp;
+    LIMIT(n, 0, term.bot - orig + 1);
+    if (copyhist) {
+        term.histi = (term.histi + 1) % HISTSIZE;
+        temp = term.hist[term.histi];
+        term.hist[term.histi] = term.line[orig];
+        term.line[orig] = temp;
+    }
+    if (term.scr > 0 && term.scr < HISTSIZE)
+        term.scr = MIN(term.scr + n, HISTSIZE - 1);
+    tclearregion(0, orig, term.col - 1, orig + n - 1);
+    tsetdirt(orig + n, term.bot);
+    for (i = orig; i <= term.bot - n; i++) {
+        temp = term.line[i];
+        term.line[i] = term.line[i + n];
+        term.line[i + n] = temp;
+    }
+    if (term.scr == 0)
+        selscroll(orig, -n);
+}
+
+void SimpleTerminal::tmoveato(int x, int y) {
+    tmoveto(x, y + ((term.c.state & CURSOR_ORIGIN) ? term.top : 0));
+}
+
+void SimpleTerminal::tdeletechar(int n) {
+    int dst, src, size;
+    Glyph *line;
+    LIMIT(n, 0, term.col - term.c.x);
+    dst = term.c.x;
+    src = term.c.x + n;
+    size = term.col - src;
+    line = term.line[term.c.y];
+    memmove(&line[dst], &line[src], size * sizeof(Glyph));
+    tclearregion(term.col - n, term.c.y, term.col - 1, term.c.y);
+}
+
+void SimpleTerminal::tdeftran(char ascii) {
+    static char cs[] = "0B";
+    static int vcs[] = {CS_GRAPHIC0, CS_USA};
+    char *p;
+    if ((p = strchr(cs, ascii)) == NULL)
+        fprintf(stderr, "esc unhandled charset: ESC ( %c\n", ascii);
+    else
+        term.trantbl[term.icharset] = vcs[p - cs];
+}
+
+void SimpleTerminal::tdectest(char c) {
+    int x, y;
+    if (c == '8') {
+        for (x = 0; x < term.col; ++x)
+            for (y = 0; y < term.row; ++y)
+                tsetchar('E', &term.c.attr, x, y);
+    }
+}
+
+void SimpleTerminal::tdefutf8(char ascii) {
+    if (ascii == 'G')
+        term.mode |= MODE_UTF8;
+    else if (ascii == '@')
+        term.mode &= ~MODE_UTF8;
+}
+
+void SimpleTerminal::tdeleteline(int n) {
+    if (BETWEEN(term.c.y, term.top, term.bot))
+        tscrollup(term.c.y, n, 0);
+}
+
+int SimpleTerminal::eschandle(uchar ascii) {
+    switch (ascii) {
+    case '[': term.esc |= ESC_CSI; return 0;
+    case '#': term.esc |= ESC_TEST; return 0;
+    case '%': term.esc |= ESC_UTF8; return 0;
+    case 'P': case '_': case '^': case ']': case 'k': tstrsequence(ascii); return 0;
+    case 'n': case 'o': term.charset = 2 + (ascii - 'n'); break;
+    case '(': case ')': case '*': case '+': term.icharset = ascii - '('; term.esc |= ESC_ALTCHARSET; return 0;
+    case 'D': if (term.c.y == term.bot) tscrollup(term.top, 1, 1); else tmoveto(term.c.x, term.c.y + 1); break;
+    case 'E': tnewline(1); break;
+    case 'H': term.tabs[term.c.x] = 1; break;
+    case 'M': if (term.c.y == term.top) tscrolldown(term.top, 1, 1); else tmoveto(term.c.x, term.c.y - 1); break;
+    case 'Z': ttywrite(vtiden, strlen(vtiden), 0); break;
+    case 'c': treset(); xloadcols(); xsetmode(0, MODE_HIDE); break;
+    case '=': case '>': break;
+    case '7': tcursor(CURSOR_SAVE); break;
+    case '8': tcursor(CURSOR_LOAD); break;
+    case '\\': if (term.esc & ESC_STR_END) strhandle(); break;
+    default: fprintf(stderr, "erresc: unknown sequence ESC 0x%02X '%c'\n", (uchar)ascii, isprint(ascii) ? ascii : '.'); break;
+    }
+    return 1;
+}
+
+void SimpleTerminal::treset(void) {
+    uint i;
+    term.c = (TCursor){{ .u = defaultCursor, .mode = ATTR_NULL, .fg = defaultfg, .bg = defaultbg }, .x = 0, .y = 0, .state = CURSOR_DEFAULT};
+    memset(term.tabs, 0, term.col * sizeof(*term.tabs));
+    for (i = tabspaces; i < term.col; i += tabspaces)
+        term.tabs[i] = 1;
+    term.top = 0;
+    term.bot = term.row - 1;
+    term.mode = MODE_WRAP | MODE_UTF8;
+    memset(term.trantbl, CS_USA, sizeof(term.trantbl));
+    term.charset = 0;
+    for (i = 0; i < 2; i++) {
+        tmoveto(0, 0);
+        tcursor(CURSOR_SAVE);
+        tclearregion(0, 0, term.col - 1, term.row - 1);
+        tswapscreen();
+    }
+}
+
+void SimpleTerminal::tswapscreen(void) {
+    Line *tmp = term.line;
+    term.line = term.alt;
+    term.alt = tmp;
+    int temp = term.scr;
+    term.altScr = term.scr;
+    term.scr = temp;
+    temp = term.histi;
+    term.histi = term.altHisti;
+    term.altHisti = temp;
+    if (term.mode & MODE_ALTSCREEN) {
+        term.altScr = 0;
+        term.altHisti = 0;
+    }
+    term.mode ^= MODE_ALTSCREEN;
+    tfulldirt();
+}
+
+void SimpleTerminal::tfulldirt(void) {
+    tsetdirt(0, term.row - 1);
+}
+
+void SimpleTerminal::tdumpsel(void) {
+    char *ptr;
+    if ((ptr = getsel())) {
+        tprinter(ptr, strlen(ptr));
+        free(ptr);
+    }
+}
+
+char *SimpleTerminal::getsel(void) {
+    char *str, *ptr;
+    int y, bufsize, lastx, linelen;
+    const Glyph *gp, *last;
+    if (sel.ob.x == -1) return NULL;
+    bufsize = (term.col + 1) * (sel.ne.y - sel.nb.y + 1) * UTF_SIZ;
+    char *buf = (char *) malloc(bufsize);
+    if (buf == NULL) {
+        emit s_error("Error on malloc in getsel.");
+        return NULL;
+    }
+    ptr = str = buf;
+    for (y = sel.nb.y; y <= sel.ne.y; y++) {
+        if ((linelen = tlinelen(y)) == 0) {
+            *ptr++ = '\n';
+            continue;
+        }
+        if (sel.type == SEL_RECTANGULAR) {
+            gp = &TLINE(term, y)[sel.nb.x];
+            lastx = sel.ne.x;
+        } else {
+            gp = &TLINE(term, y)[sel.nb.y == y ? sel.nb.x : 0];
+            lastx = (sel.ne.y == y) ? sel.ne.x : term.col - 1;
+        }
+        last = &TLINE(term, y)[MIN(lastx, linelen - 1)];
+        while (last >= gp && last->u == ' ')
+            --last;
+        for (; gp <= last; ++gp) {
+            if (gp->mode & ATTR_WDUMMY) continue;
+            ptr += utf8encode(gp->u, ptr);
+        }
+        if ((y < sel.ne.y || lastx >= linelen) && (!(last->mode & ATTR_WRAP) || sel.type == SEL_RECTANGULAR))
+            *ptr++ = '\n';
+    }
+    *ptr = 0;
+    return str;
+}
+
+void SimpleTerminal::osc_color_response(int num, int index, int is_osc4) {
+    int n;
+    char buf[32];
+    unsigned char r, g, b;
+    if (xgetcolor(is_osc4 ? num : index, &r, &g, &b)) {
+        fprintf(stderr, "erresc: failed to fetch color\n");
+        return;
+    }
+    n = snprintf(buf, sizeof buf, "\033]%s%d;rgb:%02x%02x/%02x%02x/%02x%02x\007", is_osc4 ? "4;" : "", num, r, r, g, g, b, b);
+    if (n < 0 || (size_t)n >= sizeof(buf))
+        fprintf(stderr, "error: response truncated\n");
+    else
+        ttywrite(buf, n, 1);
+}
+
+void SimpleTerminal::redraw(void) {
+    tfulldirt();
+    draw();
+}
+
+char *SimpleTerminal::base64dec(const char *src) {
+    size_t in_len = strlen(src);
+    if (in_len % 4) in_len += 4 - (in_len % 4);
+    char *buf = (char *) malloc(in_len / 4 * 3 + 1), *result, *dst;
+    if (buf == NULL) {
+        emit s_error("Error on malloc in base64dec");
+        return NULL;
+    }
+    result = dst = buf;
+    while (*src) {
+        int a = base64_digits[(unsigned char) base64dec_getc(&src)];
+        int b = base64_digits[(unsigned char) base64dec_getc(&src)];
+        int c = base64_digits[(unsigned char) base64dec_getc(&src)];
+        int d = base64_digits[(unsigned char) base64dec_getc(&src)];
+        if (a == -1 || b == -1) break;
+        *dst++ = (a << 2) | ((b & 0x30) >> 4);
+        if (c == -1) break;
+        *dst++ = ((b & 0x0f) << 4) | ((c & 0x3c) >> 2);
+        if (d == -1) break;
+        *dst++ = ((c & 0x03) << 6) | d;
+    }
+    *dst = '\0';
+    return result;
+}
+
+char SimpleTerminal::base64dec_getc(const char **src) {
+    while (**src && !isprint((unsigned char)**src))
+        (*src)++;
+    return **src ? *((*src)++) : '=';
+}
+
+void SimpleTerminal::selsnap(int *x, int *y, int direction) {
+    int newx, newy, xt, yt;
+    int delim, prevdelim;
+    const Glyph *gp, *prevgp;
+    switch (sel.snap) {
+    case SNAP_WORD:
+        prevgp = &TLINE(term, *y)[*x];
+        prevdelim = ISDELIM(prevgp->u);
+        for (;;) {
+            newx = *x + direction;
+            newy = *y;
+            if (!BETWEEN(newx, 0, term.col - 1)) {
+                newy += direction;
+                newx = (newx + term.col) % term.col;
+                if (!BETWEEN(newy, 0, term.row - 1)) break;
+                if (direction > 0) { if (!(TLINE(term, *y)[*x].mode & ATTR_WRAP)) break; }
+                else { if (!(TLINE(term, newy)[newx].mode & ATTR_WRAP)) break; }
+            }
+            if (newx >= tlinelen(newy)) break;
+            gp = &TLINE(term, newy)[newx];
+            delim = ISDELIM(gp->u);
+            if (!(gp->mode & ATTR_WDUMMY) && (delim != prevdelim || (delim && gp->u != prevgp->u))) break;
+            *x = newx; *y = newy;
+            prevgp = gp;
+            prevdelim = delim;
+        }
+        break;
+    case SNAP_LINE:
+        *x = (direction < 0) ? 0 : term.col - 1;
+        if (direction < 0) {
+            for (; *y > 0; *y += direction) {
+                if (!(TLINE(term, *y - 1)[term.col - 1].mode & ATTR_WRAP)) break;
+            }
+        } else if (direction > 0) {
+            for (; *y < term.row - 1; *y += direction) {
+                if (!(TLINE(term, *y)[term.col - 1].mode & ATTR_WRAP)) break;
+            }
+        }
+        break;
+    }
+}
+
+void SimpleTerminal::tsetattr(const int *attr, int l) {
+    int i;
+    int32_t idx;
+    for (i = 0; i < l; i++) {
+        switch (attr[i]) {
+        case 0: term.c.attr.mode &= ~(ATTR_BOLD|ATTR_FAINT|ATTR_ITALIC|ATTR_UNDERLINE|ATTR_BLINK|ATTR_REVERSE|ATTR_INVISIBLE|ATTR_STRUCK); term.c.attr.fg = defaultfg; term.c.attr.bg = defaultbg; break;
+        case 1: term.c.attr.mode |= ATTR_BOLD; break;
+        case 2: term.c.attr.mode |= ATTR_FAINT; break;
+        case 3: term.c.attr.mode |= ATTR_ITALIC; break;
+        case 4: term.c.attr.mode |= ATTR_UNDERLINE; break;
+        case 5: case 6: term.c.attr.mode |= ATTR_BLINK; break;
+        case 7: term.c.attr.mode |= ATTR_REVERSE; break;
+        case 8: term.c.attr.mode |= ATTR_INVISIBLE; break;
+        case 9: term.c.attr.mode |= ATTR_STRUCK; break;
+        case 22: term.c.attr.mode &= ~(ATTR_BOLD|ATTR_FAINT); break;
+        case 23: term.c.attr.mode &= ~ATTR_ITALIC; break;
+        case 24: term.c.attr.mode &= ~ATTR_UNDERLINE; break;
+        case 25: term.c.attr.mode &= ~ATTR_BLINK; break;
+        case 27: term.c.attr.mode &= ~ATTR_REVERSE; break;
+        case 28: term.c.attr.mode &= ~ATTR_INVISIBLE; break;
+        case 29: term.c.attr.mode &= ~ATTR_STRUCK; break;
+        case 38: idx = tdefcolor(attr, &i, l); if (idx >= 0) term.c.attr.fg = idx; break;
+        case 39: term.c.attr.fg = defaultfg; break;
+        case 48: idx = tdefcolor(attr, &i, l); if (idx >= 0) term.c.attr.bg = idx; break;
+        case 49: term.c.attr.bg = defaultbg; break;
+        default:
+            if (BETWEEN(attr[i], 30, 37)) term.c.attr.fg = attr[i] - 30;
+            else if (BETWEEN(attr[i], 40, 47)) term.c.attr.bg = attr[i] - 40;
+            else if (BETWEEN(attr[i], 90, 97)) term.c.attr.fg = attr[i] - 90 + 8;
+            else if (BETWEEN(attr[i], 100, 107)) term.c.attr.bg = attr[i] - 100 + 8;
+            else { emit s_error("erresc(default): gfx attr " + QString::number(attr[i]) + " unknown."); csidump(); }
+            break;
+        }
+    }
+}
+
+int32_t SimpleTerminal::tdefcolor(const int *attr, int *npar, int l) {
+    int32_t idx = -1;
+    uint r, g, b;
+    switch (attr[*npar + 1]) {
+    case 2:
+        if (*npar + 4 >= l) { emit s_error("erresc(38): Incorrect number of parameters"); break; }
+        r = attr[*npar + 2]; g = attr[*npar + 3]; b = attr[*npar + 4];
+        *npar += 4;
+        if (!BETWEEN(r,0,255)||!BETWEEN(g,0,255)||!BETWEEN(b,0,255))
+            emit s_error("erresc: bad rgb color");
+        else
+            idx = TRUECOLOR(r,g,b);
+        break;
+    case 5:
+        if (*npar + 2 >= l) { emit s_error("erresc(38): Incorrect number of parameters"); break; }
+        *npar += 2;
+        if (!BETWEEN(attr[*npar], 0, 255))
+            emit s_error("erresc: bad fgcolor");
+        else
+            idx = attr[*npar];
+        break;
+    default: break;
+    }
+    return idx;
+}
+
+void SimpleTerminal::tsetmode(int priv, int set, const int *args, int narg) {
+    int alt;
+    const int *lim;
+    for (lim = args + narg; args < lim; ++args) {
+        if (priv) {
+            switch (*args) {
+            case 1: xsetmode(set, MODE_APPCURSOR); break;
+            case 5: xsetmode(set, MODE_REVERSE); break;
+            case 6: MODBIT(term.c.state, set, CURSOR_ORIGIN); tmoveato(0, 0); break;
+            case 7: MODBIT(term.mode, set, MODE_WRAP); break;
+            case 25: xsetmode(!set, MODE_HIDE); break;
+            case 9: xsetmode(0, MODE_MOUSE); xsetmode(set, MODE_MOUSEX10); break;
+            case 1000: xsetmode(0, MODE_MOUSE); xsetmode(set, MODE_MOUSEBTN); break;
+            case 1002: xsetmode(0, MODE_MOUSE); xsetmode(set, MODE_MOUSEMOTION); break;
+            case 1003: xsetmode(0, MODE_MOUSE); xsetmode(set, MODE_MOUSEMANY); break;
+            case 1004: xsetmode(set, MODE_FOCUS); break;
+            case 1006: xsetmode(set, MODE_MOUSESGR); break;
+            case 1034: xsetmode(set, MODE_8BIT); break;
+            case 1049: case 47: case 1047:
+                alt = IS_SET(term.mode, MODE_ALTSCREEN);
+                if (alt) tclearregion(0, 0, term.col - 1, term.row - 1);
+                if (set ^ alt) tswapscreen();
+                if (*args != 1049) break;
+            case 1048: tcursor(set ? CURSOR_SAVE : CURSOR_LOAD); break;
+            case 2004: xsetmode(set, MODE_BRCKTPASTE); break;
+            }
+        } else {
+            switch (*args) {
+            case 2: xsetmode(set, MODE_KBDLOCK); break;
+            case 4: MODBIT(term.mode, set, MODE_INSERT); break;
+            case 12: MODBIT(term.mode, !set, MODE_ECHO); break;
+            case 20: MODBIT(term.mode, set, MODE_CRLF); break;
+            }
+        }
+    }
+}
+
+void SimpleTerminal::xsetmode(int set, unsigned int flags) {
+    int mode = win.mode;
+    MODBIT(win.mode, set, flags);
+    if ((win.mode & MODE_REVERSE) != (mode & MODE_REVERSE))
+        redraw();
+}
+
+void SimpleTerminal::bell() {
+    QApplication::beep();
+}
+
+void SimpleTerminal::ttyresize(int tw, int th) {
+    win.tw = tw;
+    win.th = th;
+#ifdef Q_OS_WIN
+    if (m_hPC) {
+        COORD size;
+        size.X = static_cast<SHORT>(term.col);
+        size.Y = static_cast<SHORT>(term.row);
+        ResizePseudoConsole(m_hPC, size);
+    }
+#else
+    wsize.ws_row = term.row;
+    wsize.ws_col = term.col;
+    wsize.ws_xpixel = tw;
+    wsize.ws_ypixel = th;
+    if (ioctl(master, TIOCSWINSZ, &wsize) < 0)
+        emit s_error("Couldn't set window size.");
+#endif
+}
+
+void SimpleTerminal::selstart(int col, int row, int snap) {
+    selclear();
+    sel.mode = SEL_EMPTY;
+    sel.type = SEL_REGULAR;
+    sel.alt = IS_SET(term.mode, MODE_ALTSCREEN);
+    sel.snap = snap;
+    sel.oe.x = sel.ob.x = col;
+    sel.oe.y = sel.ob.y = row;
+    selnormalize();
+    if (sel.snap != 0)
+        sel.mode = SEL_READY;
+    tsetdirt(sel.nb.y, sel.ne.y);
+}
+
+void SimpleTerminal::selextend(int col, int row, int type, int done) {
+    int oldey, oldex, oldsby, oldsey, oldtype;
+    if (sel.mode == SEL_IDLE) return;
+    if (done && sel.mode == SEL_EMPTY) { selclear(); return; }
+    oldey = sel.oe.y;
+    oldex = sel.oe.x;
+    oldsby = sel.nb.y;
+    oldsey = sel.ne.y;
+    oldtype = sel.type;
+    sel.oe.x = col;
+    sel.oe.y = row;
+    selnormalize();
+    sel.type = type;
+    if (oldey != sel.oe.y || oldex != sel.oe.x || oldtype != sel.type || sel.mode == SEL_EMPTY)
+        tsetdirt(MIN(sel.nb.y, oldsby), MAX(sel.ne.y, oldsey));
+    sel.mode = done ? SEL_IDLE : SEL_READY;
+}
+
+void SimpleTerminal::xsetsel(char *) {}
+void SimpleTerminal::xclipcopy(void) {}
+void SimpleTerminal::draw(void) {}
+int SimpleTerminal::xsetcolorname(int, const char *) { return 0; }
+int SimpleTerminal::xgetcolor(int, unsigned char *, unsigned char *, unsigned char *) { return 0; }
+void SimpleTerminal::xloadcols() {}
+int SimpleTerminal::xsetcursor(int) { return 0; }
+void SimpleTerminal::tprinter(char *, size_t) {}

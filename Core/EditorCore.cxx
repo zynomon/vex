@@ -1,9 +1,10 @@
+
 /****************************************************************
 *                                                              *
 *                         Apache 2.0                           *
 *     Copyright Zynomon aelius <zynomon@proton.me>  2026       *
 *               Project         :        Vex                   *
-*               Version         :        4.2 (Cytoplasm)       *
+*               Version         :        4.3 (Cytoplasm)       *
 ****************************************************************/
 #include <QObject>
 #include <QtPlugin>
@@ -15,6 +16,7 @@
 #include <QAction>
 #include <QMimeData>
 #include <QFileDialog>
+#include <QScrollArea>
 #include <QMessageBox>
 #include <QFile>
 #include <QApplication>
@@ -137,7 +139,7 @@ public:
     void INS() {
         m_mode = ModeEnum::MODE_INS;
         saveMODE();
-        m_btn->setText("INSERT");
+        m_btn->setText("INS");
         m_btn->setStyleSheet(
             "QPushButton { padding: 2px 10px; background-color: #2a5a2a;"
             " color: #d0f0d0; font-weight: bold; border: none; }"
@@ -151,7 +153,7 @@ public:
         m_mode = ModeEnum::MODE_CMD;
         m_cmdLine = ":";
         m_cbCmdChanged(m_cmdLine);
-        m_btn->setText("COMMAND");
+        m_btn->setText("CMD");
         m_btn->setStyleSheet(
             "QPushButton { padding: 2px 10px; background-color: #FF9800;"
             " color: white; font-weight: bold; border: none; }"
@@ -323,55 +325,62 @@ class VColors {
 public:
     static void initDefaults() {
         Settings &s = Settings::instance();
-        if (!s.contains("theme/lineNumberBg"))
-            s.setValue("theme/lineNumberBg", QColor(30, 30, 30));
-        if (!s.contains("theme/lineNumberFg"))
-            s.setValue("theme/lineNumberFg", QColor(100, 180, 100));
-        if (!s.contains("theme/lineHighlightColor"))
-            s.setValue("theme/lineHighlightColor", QColor(0, 60, 30, 102));
         if (!s.contains("theme/lineNumberWidth"))
             s.setValue("theme/lineNumberWidth", 3);
     }
 
-    static QColor getLineNumBg(QWidget*) {
+    static QColor getLineNumBg(QWidget* widget) {
         QColor c = Settings::instance().get<QColor>("theme/lineNumberBg");
-        return c.isValid() ? c : QColor(30, 30, 30);
+        if (c.isValid()) return c;
+
+        QPalette pal = widget ? widget->palette() : QApplication::palette();
+        QColor baseColor = pal.color(QPalette::Base);
+        QColor bgColor(0x1e, 0x1e, 0x1e, 153);
+
+        return bgColor;
     }
-    static QColor getLineNumFg(QWidget*) {
+
+    static QColor getLineNumFg(QWidget* widget) {
         QColor c = Settings::instance().get<QColor>("theme/lineNumberFg");
-        return c.isValid() ? c : QColor(100, 180, 100);
+        if (c.isValid()) return c;
+
+        return QColor(255, 255, 255);
     }
-    static QColor getHighlightColor(QWidget*) {
+
+    static QColor getHighlightColor(QWidget* widget) {
         QColor c = Settings::instance().get<QColor>("theme/lineHighlightColor");
-        return c.isValid() ? c : QColor(0, 60, 30, 102);
+        if (c.isValid()) return c;
+
+        QPalette pal = widget ? widget->palette() : QApplication::palette();
+        QColor highlightColor = pal.color(QPalette::Highlight);
+        highlightColor.setAlpha(60);
+
+        return highlightColor;
     }
+
     static int getLineNumberWidth() {
         int w = Settings::instance().get<int>("theme/lineNumberWidth");
         return w > 0 ? w : 3;
     }
 };
-
 class VexEditor : public QPlainTextEdit {
     Q_OBJECT
 public:
     VexEditor(QWidget *parent = nullptr);
     int lineNumberAreaWidth();
     void lineNumberAreaPaintEvent(QPaintEvent *event);
-    void setupMode(QPushButton *btn);
-    Mode &mode() { return m_mode; }
     QTextDocument::FindFlags getFindFlags(bool caseSensitive, bool wholeWords) const;
     void setLineWrapping(bool wrap);
     bool isLineWrapping() const { return lineWrapEnabled; }
+    void setModeHandler(std::function<void(QPlainTextEdit*, QKeyEvent*)> handler) {
+        m_modeHandler = handler;
+    }
+    void processInsertModeKey(QKeyEvent *e) {
+        QPlainTextEdit::keyPressEvent(e);
+    }
 
 public slots:
     void highlightCurrentLine();
-
-signals:
-    void modeChanged(Mode::ModeEnum mode);
-    void saveRequested();
-    void vimKeyPressed(const QString &keyDesc);
-    void commandLineChanged(const QString &command);
-    void commandExecuted(const QString &command, bool success);
 
 protected:
     void resizeEvent(QResizeEvent *e) override;
@@ -383,8 +392,8 @@ private slots:
 
 private:
     LineNumberArea *lineNumberArea;
-    Mode            m_mode;
     bool            lineWrapEnabled;
+    std::function<void(QPlainTextEdit*, QKeyEvent*)> m_modeHandler;
 };
 
 class LineNumberArea : public QWidget {
@@ -421,19 +430,6 @@ VexEditor::VexEditor(QWidget *parent)
     highlightCurrentLine();
 }
 
-void VexEditor::setupMode(QPushButton *btn) {
-    m_mode.init(
-        btn,
-        [this]()                         { emit saveRequested(); },
-        [this](const QString &k)         { emit vimKeyPressed(k); },
-        [this](const QString &c)         { emit commandLineChanged(c); },
-        [this](const QString &c, bool s) { emit commandExecuted(c, s); },
-        [this](Mode::ModeEnum m)         { emit modeChanged(m); },
-        [this](QKeyEvent *e)             { QPlainTextEdit::keyPressEvent(e); }
-        );
-    m_mode.setupButton();
-}
-
 int VexEditor::lineNumberAreaWidth() {
     int digits = 1;
     int maxLines = qMax(1, document()->blockCount());
@@ -441,7 +437,10 @@ int VexEditor::lineNumberAreaWidth() {
         maxLines /= 10;
         ++digits;
     }
-    return VColors::getLineNumberWidth() + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
+    int charWidth = fontMetrics().horizontalAdvance(QLatin1Char('9'));
+    int numberWidth = charWidth * digits;
+    int padding = charWidth;
+    return VColors::getLineNumberWidth() + numberWidth + padding;
 }
 void VexEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
     QPainter painter(lineNumberArea);
@@ -452,13 +451,29 @@ void VexEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
     int top = qRound(blockBoundingGeometry(block).translated(contentOffset()).top());
     int bottom = top + qRound(blockBoundingRect(block).height());
 
-    painter.setPen(VColors::getLineNumFg(this));
+    int areaWidth = lineNumberArea->width();
+    int fmHeight = fontMetrics().height();
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
-            QString number = QString::number(blockNumber + 1);
-            painter.drawText(0, top, lineNumberArea->width() - 4, fontMetrics().height(),
-                             Qt::AlignRight, number);
+            painter.setPen(VColors::getLineNumFg(this));
+            painter.drawText(0, top, areaWidth - 4, fmHeight,
+                             Qt::AlignRight | Qt::AlignVCenter,
+                             QString::number(blockNumber + 1));
+
+            if (block.lineCount() > 1) {
+                QColor wrapColor = VColors::getLineNumFg(this);
+                wrapColor.setAlpha(100);
+                painter.setPen(wrapColor);
+
+                QTextLayout *layout = block.layout();
+                for (int i = 1; i < block.lineCount(); ++i) {
+                    QTextLine line = layout->lineAt(i);
+                    int wrapTop = top + qRound(line.y());
+                    painter.drawText(0, wrapTop, areaWidth - 4, fmHeight,
+                                     Qt::AlignRight | Qt::AlignVCenter, "⏎");
+                }
+            }
         }
 
         block = block.next();
@@ -467,6 +482,13 @@ void VexEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
         ++blockNumber;
     }
 }
+
+void VexEditor::setLineWrapping(bool wrap) {
+    lineWrapEnabled = wrap;
+    setLineWrapMode(wrap ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
+    viewport()->update();
+}
+
 QTextDocument::FindFlags VexEditor::getFindFlags(bool caseSensitive, bool wholeWords) const {
     QTextDocument::FindFlags flags;
     if (caseSensitive) flags |= QTextDocument::FindCaseSensitively;
@@ -474,11 +496,6 @@ QTextDocument::FindFlags VexEditor::getFindFlags(bool caseSensitive, bool wholeW
     return flags;
 }
 
-void VexEditor::setLineWrapping(bool wrap) {
-    lineWrapEnabled = wrap;
-    setLineWrapMode(wrap ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
-    viewport()->update();
-}
 
 void VexEditor::resizeEvent(QResizeEvent *e) {
     QPlainTextEdit::resizeEvent(e);
@@ -487,7 +504,10 @@ void VexEditor::resizeEvent(QResizeEvent *e) {
 }
 
 void VexEditor::keyPressEvent(QKeyEvent *e) {
-    m_mode.handleKey(this, e);
+    if (m_modeHandler)
+        m_modeHandler(this, e);
+    else
+        QPlainTextEdit::keyPressEvent(e);
 }
 
 void VexEditor::updateLineNumberAreaWidth(int) {
@@ -898,7 +918,7 @@ private:
 
 class VexWidget : public QWidget {
     Q_OBJECT
-    friend class VexCorePlugin;
+    friend class EditorCorePlugin;
 
 public:
     explicit VexWidget(QWidget *parent = nullptr);
@@ -938,7 +958,10 @@ private slots:
     void handleInstanceRequest(const QString &requestFilePath);
     void onSettingsFileChanged(const QString &path);
     void onLineEndingChanged();
-
+    void showTabContextMenu(const QPoint &pos);
+    void renameFile(int index);
+    void showInFileManager();
+    void openFileInNewWindow();
 protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
@@ -953,6 +976,7 @@ private:
     bool hasBinaryContent(const QByteArray &data) const;
     VexEditor* getCurrentEditor();
     QString getCurrentWorkingDirectory() const;
+    void attachEditor(VexEditor *editor);
 
     QStackedWidget *stackedWidget;
     QTabWidget     *tabWidget;
@@ -961,6 +985,7 @@ private:
     QLabel         *vimHintLabel;
     QAction        *lineWrapAction;
     LineEnding     *m_lineEnding;
+    Mode            m_mode;
     QMap<VexEditor*, QString> filePaths;
     QMap<VexEditor*, LineEnding::Type> editorLineEndings;
     FindReplaceDialog *findDialog;
@@ -1108,36 +1133,9 @@ void VexWidget::loadSavedSession() {
                 file.close();
 
                 VexEditor *editor = new VexEditor(this);
-                editor->setupMode(modeLabel);
-                editor->setLineWrapping(lineWrapAction->isChecked());
+                attachEditor(editor);
                 editor->setPlainText(content);
                 editor->document()->setModified(true);
-
-                connect(editor, &VexEditor::modeChanged, this, [this](Mode::ModeEnum) {
-                    updateCursorPosition();
-                });
-                connect(editor, &VexEditor::saveRequested, this, &VexWidget::saveFile);
-                connect(editor, &VexEditor::vimKeyPressed, this, [this](const QString &key) {
-                    vimHintLabel->setText(key);
-                    QTimer::singleShot(800, this, [this]() { vimHintLabel->clear(); });
-                });
-                connect(editor, &VexEditor::commandLineChanged, this, [this](const QString &cmd) {
-                    vimHintLabel->setText(cmd);
-                });
-                connect(editor, &VexEditor::commandExecuted, this, [this](const QString &cmd, bool success) {
-                    QString msg = success ? "Success: " + cmd : "Failed: " + cmd;
-                    if (m_mainWindow) {
-                        m_mainWindow->statusBar()->showMessage(msg, 2000);
-                    }
-                    vimHintLabel->clear();
-                });
-                connect(editor, &QPlainTextEdit::cursorPositionChanged, this, &VexWidget::updateCursorPosition);
-                connect(editor->document(), &QTextDocument::modificationChanged, this, [this, editor](bool) {
-                    int index = tabWidget->indexOf(editor);
-                    if (index != -1) {
-                        updateTabAppearance(index);
-                    }
-                });
 
                 QString tabName = originalPath.isEmpty() ? "Restored (Unsaved)" :
                                       QFileInfo(originalPath).fileName() + " (Recovered)";
@@ -1198,7 +1196,26 @@ void VexWidget::handleInstanceRequest(const QString &requestFilePath) {
         m_mainWindow->activateWindow();
     }
 }
-
+void VexWidget::attachEditor(VexEditor *editor) {
+    editor->setLineWrapping(lineWrapAction->isChecked());
+    editor->setModeHandler([this](QPlainTextEdit *ed, QKeyEvent *e) {
+        if (m_mode.current() == Mode::MODE_INS) {
+            VexEditor *vexEditor = qobject_cast<VexEditor*>(ed);
+            if (vexEditor) {
+                vexEditor->processInsertModeKey(e);
+            }
+        } else {
+            m_mode.handleKey(ed, e);
+        }
+    });
+    connect(editor, &QPlainTextEdit::cursorPositionChanged, this, &VexWidget::updateCursorPosition);
+    connect(editor->document(), &QTextDocument::modificationChanged, this, [this, editor](bool) {
+        int index = tabWidget->indexOf(editor);
+        if (index != -1) {
+            updateTabAppearance(index);
+        }
+    });
+}
 void VexWidget::setupUI(QMainWindow *mainWin) {
     m_mainWindow = mainWin;
     stackedWidget = new QStackedWidget(this);
@@ -1209,6 +1226,9 @@ void VexWidget::setupUI(QMainWindow *mainWin) {
     tabWidget = new QTabWidget(stackedWidget);
     tabWidget->setTabsClosable(true);
     tabWidget->setMovable(true);
+    tabWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(tabWidget, &QTabWidget::customContextMenuRequested, this, &VexWidget::showTabContextMenu);
+
     stackedWidget->addWidget(tabWidget);
     stackedWidget->setObjectName("VexStack");
     tabWidget->setObjectName("VexTab");
@@ -1216,6 +1236,32 @@ void VexWidget::setupUI(QMainWindow *mainWin) {
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(stackedWidget);
+
+    modeLabel = new QPushButton(mainWin);
+    modeLabel->setCursor(Qt::PointingHandCursor);
+    mainWin->statusBar()->addPermanentWidget(modeLabel);
+
+    m_mode.init(
+        modeLabel,
+        [this]() { saveFile(); },
+        [this](const QString &k) {
+            vimHintLabel->setText(k);
+            QTimer::singleShot(800, this, [this]() { vimHintLabel->clear(); });
+        },
+        [this](const QString &c) { vimHintLabel->setText(c); },
+        [this](const QString &c, bool s) {
+            QString msg = s ? "Success: " + c : "Failed: " + c;
+            if (m_mainWindow) m_mainWindow->statusBar()->showMessage(msg, 2000);
+            vimHintLabel->clear();
+        },
+        [this](Mode::ModeEnum) { updateCursorPosition(); },
+        [](QKeyEvent *e) { Q_UNUSED(e); }
+        );
+    m_mode.setupButton();
+
+    m_lineEnding = new LineEnding(this);
+    m_lineEnding->setupUi(mainWin->statusBar());
+    connect(m_lineEnding, &LineEnding::lineEndingChanged, this, &VexWidget::onLineEndingChanged);
 
     connect(tabWidget, &QTabWidget::tabCloseRequested, this, &VexWidget::closeTab);
     connect(tabWidget, &QTabWidget::currentChanged, [this, mainWin](int) {
@@ -1225,20 +1271,14 @@ void VexWidget::setupUI(QMainWindow *mainWin) {
         if (editor) {
             LineEnding::Type type = editorLineEndings.value(editor, LineEnding::LF);
             m_lineEnding->setType(type);
+            updateCursorPosition();
+        } else {
+            positionLabel->setText("Line: 0, Col: 0");
         }
     });
     onTabCountChanged(0);
 
-    modeLabel = new QPushButton(mainWin);
-    modeLabel->setCursor(Qt::PointingHandCursor);
-    modeLabel->setStyleSheet("QPushButton { background-color: transparent; color: transparent; border: none; } QPushButton:hover { background-color: transparent; color: transparent; } QPushButton:pressed { background-color: transparent; color: transparent; }");
-    mainWin->statusBar()->addPermanentWidget(modeLabel);
-    m_lineEnding = new LineEnding(this);
-    m_lineEnding->setupUi(mainWin->statusBar());
-    connect(m_lineEnding, &LineEnding::lineEndingChanged, this, &VexWidget::onLineEndingChanged);
-
-
-    positionLabel = new QLabel("Line: 1, Col: 1", mainWin);
+    positionLabel = new QLabel("Line: 0, Col: 0", mainWin);
     mainWin->statusBar()->addPermanentWidget(positionLabel);
 
     vimHintLabel = new QLabel("", mainWin);
@@ -1249,70 +1289,89 @@ void VexWidget::setupUI(QMainWindow *mainWin) {
 }
 
 void VexWidget::setupMenus(QMainWindow *mainWin) {
-    QMenu *fileMenu = mainWin->menuBar()->addMenu("&File");
+    QMenuBar* mb = mainWin->menuBar();
 
-    QAction *newAction = fileMenu->addAction("&New");
+    QMenu* fileMenu = nullptr;
+    QMenu* editMenu = nullptr;
+    QMenu* viewMenu = nullptr;
+    QMenu* helpMenu = nullptr;
+
+    const QList<QAction*> acts = mb->actions();
+    for (QAction* a : acts) {
+        if (a->text() == "&File" || a->text() == "File") fileMenu = a->menu();
+        else if (a->text() == "&Edit" || a->text() == "Edit") editMenu = a->menu();
+        else if (a->text() == "&View" || a->text() == "View") viewMenu = a->menu();
+        else if (a->text() == "&Help" || a->text() == "Help") helpMenu = a->menu();
+    }
+
+    if (!fileMenu) fileMenu = mb->addMenu("&File");
+    if (!editMenu) editMenu = mb->addMenu("&Edit");
+    if (!viewMenu) viewMenu = mb->addMenu("&View");
+    if (!helpMenu) helpMenu = mb->addMenu("&Help");
+
+    QAction *newAction = fileMenu->addAction(Settings::instance().resolveIcon("document-new"), "&New");
     newAction->setShortcut(QKeySequence::New);
     connect(newAction, &QAction::triggered, this, &VexWidget::newFile);
 
-    QAction *openAction = fileMenu->addAction("&Open");
+    QAction *openAction = fileMenu->addAction(Settings::instance().resolveIcon("folder-open"), "&Open");
     openAction->setShortcut(QKeySequence("Ctrl+Shift+O"));
     connect(openAction, &QAction::triggered, this, &VexWidget::openFile);
 
-    QAction *openByNameAction = fileMenu->addAction("Open &By Name...");
+    QAction *openByNameAction = fileMenu->addAction(Settings::instance().resolveIcon("document-open"), "Open &By Name...");
     openByNameAction->setShortcut(QKeySequence("Ctrl+O"));
     connect(openByNameAction, &QAction::triggered, this, &VexWidget::openFileByName);
 
     fileMenu->addSeparator();
 
     recentMenu = fileMenu->addMenu("Open &Recent");
+    recentMenu->setIcon(Settings::instance().resolveIcon("document-open-recent"));
     updateRecentMenu();
 
     fileMenu->addSeparator();
 
-    QAction *saveAction = fileMenu->addAction("&Save");
+    QAction *saveAction = fileMenu->addAction(Settings::instance().resolveIcon("document-save"), "&Save");
     saveAction->setShortcut(QKeySequence::Save);
     connect(saveAction, &QAction::triggered, this, &VexWidget::saveFile);
 
-    QAction *saveAsAction = fileMenu->addAction("Save &As");
+    QAction *saveAsAction = fileMenu->addAction(Settings::instance().resolveIcon("document-save-as"), "Save &As");
     saveAsAction->setShortcut(QKeySequence::SaveAs);
     connect(saveAsAction, &QAction::triggered, this, &VexWidget::saveFileAs);
 
     fileMenu->addSeparator();
 
-    QAction *exitAction = fileMenu->addAction("E&xit");
+    QAction *exitAction = fileMenu->addAction(Settings::instance().resolveIcon("application-exit"), "E&xit");
     exitAction->setShortcut(QKeySequence::Quit);
     connect(exitAction, &QAction::triggered, mainWin, &QWidget::close);
 
-    QMenu *editMenu = mainWin->menuBar()->addMenu("&Edit");
+    QAction *restartAction = fileMenu->addAction(Settings::instance().resolveIcon("view-refresh"), "&Restart");
+    restartAction->setShortcut(QKeySequence("Ctrl+Shift+R"));
+    connect(restartAction, &QAction::triggered, this, [this]() {
+        QProcess::startDetached(QCoreApplication::applicationFilePath(), QStringList());
+        qApp->quit();
+    });
 
-    QAction *undoAction = editMenu->addAction("&Undo");
+    QAction *undoAction = editMenu->addAction(Settings::instance().resolveIcon("edit-undo"), "&Undo");
     undoAction->setShortcut(QKeySequence::Undo);
     connect(undoAction, &QAction::triggered, this, &VexWidget::undo);
 
-    QAction *redoAction = editMenu->addAction("&Redo");
+    QAction *redoAction = editMenu->addAction(Settings::instance().resolveIcon("edit-redo"), "&Redo");
     redoAction->setShortcut(QKeySequence::Redo);
     connect(redoAction, &QAction::triggered, this, &VexWidget::redo);
 
     editMenu->addSeparator();
 
-    QAction *findAction = editMenu->addAction("&Find and Replace");
+    QAction *findAction = editMenu->addAction(Settings::instance().resolveIcon("edit-find"), "&Find and Replace");
     findAction->setShortcut(QKeySequence("Ctrl+F"));
     connect(findAction, &QAction::triggered, this, &VexWidget::showFindReplaceDialog);
-
-    QMenu *viewMenu = mainWin->menuBar()->addMenu("&View");
 
     lineWrapAction = viewMenu->addAction("&Line Wrapping");
     lineWrapAction->setCheckable(true);
     lineWrapAction->setChecked(false);
     connect(lineWrapAction, &QAction::toggled, this, &VexWidget::toggleLineWrapping);
 
-    QMenu *helpMenu = mainWin->menuBar()->addMenu("&Help");
-
-    QAction *aboutAction = helpMenu->addAction("&About");
+    QAction *aboutAction = helpMenu->addAction(Settings::instance().resolveIcon("vex"), "&About");
     connect(aboutAction, &QAction::triggered, this, &VexWidget::showAbout);
 }
-
 void VexWidget::setupToolbar(QMainWindow *mainWin) {
     QToolBar *toolbar = mainWin->addToolBar("Main");
     toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
@@ -1333,7 +1392,7 @@ void VexWidget::setupToolbar(QMainWindow *mainWin) {
     });
 
     addAction("New",          "document-new",      SLOT(newFile()));
-    addAction("Open",         "document-open",     SLOT(openFile()));
+    addAction("Open",         "folder-open",     SLOT(openFile()));
     addAction("Open by Name", "document-open",     SLOT(openFileByName()));
     addAction("Save",         "document-save",     SLOT(saveFile()));
     toolbar->addSeparator();
@@ -1346,34 +1405,7 @@ void VexWidget::setupToolbar(QMainWindow *mainWin) {
 
 void VexWidget::newFile() {
     VexEditor *editor = new VexEditor(this);
-    editor->setupMode(modeLabel);
-    editor->setLineWrapping(lineWrapAction->isChecked());
-
-    connect(editor, &VexEditor::modeChanged, this, [this](Mode::ModeEnum) {
-        updateCursorPosition();
-    });
-    connect(editor, &VexEditor::saveRequested, this, &VexWidget::saveFile);
-    connect(editor, &VexEditor::vimKeyPressed, this, [this](const QString &key) {
-        vimHintLabel->setText(key);
-        QTimer::singleShot(800, this, [this]() { vimHintLabel->clear(); });
-    });
-    connect(editor, &VexEditor::commandLineChanged, this, [this](const QString &cmd) {
-        vimHintLabel->setText(cmd);
-    });
-    connect(editor, &VexEditor::commandExecuted, this, [this](const QString &cmd, bool success) {
-        QString msg = success ? "Success: " + cmd : "Failed: " + cmd;
-        if (m_mainWindow) {
-            m_mainWindow->statusBar()->showMessage(msg, 2000);
-        }
-        vimHintLabel->clear();
-    });
-    connect(editor, &QPlainTextEdit::cursorPositionChanged, this, &VexWidget::updateCursorPosition);
-    connect(editor->document(), &QTextDocument::modificationChanged, this, [this, editor](bool) {
-        int index = tabWidget->indexOf(editor);
-        if (index != -1) {
-            updateTabAppearance(index);
-        }
-    });
+    attachEditor(editor);
 
     int index = tabWidget->addTab(editor, "No Name");
     tabWidget->setCurrentIndex(index);
@@ -1458,35 +1490,8 @@ void VexWidget::openFileAtPath(const QString &filePath) {
     QString content = converter.decode(data);
 
     VexEditor *editor = new VexEditor(this);
-    editor->setupMode(modeLabel);
-    editor->setLineWrapping(lineWrapAction->isChecked());
+    attachEditor(editor);
     editor->setPlainText(content);
-
-    connect(editor, &VexEditor::modeChanged, this, [this](Mode::ModeEnum) {
-        updateCursorPosition();
-    });
-    connect(editor, &VexEditor::saveRequested, this, &VexWidget::saveFile);
-    connect(editor, &VexEditor::vimKeyPressed, this, [this](const QString &key) {
-        vimHintLabel->setText(key);
-        QTimer::singleShot(800, this, [this]() { vimHintLabel->clear(); });
-    });
-    connect(editor, &VexEditor::commandLineChanged, this, [this](const QString &cmd) {
-        vimHintLabel->setText(cmd);
-    });
-    connect(editor, &VexEditor::commandExecuted, this, [this](const QString &cmd, bool success) {
-        QString msg = success ? "Success: " + cmd : "Failed: " + cmd;
-        if (m_mainWindow) {
-            m_mainWindow->statusBar()->showMessage(msg, 2000);
-        }
-        vimHintLabel->clear();
-    });
-    connect(editor, &QPlainTextEdit::cursorPositionChanged, this, &VexWidget::updateCursorPosition);
-    connect(editor->document(), &QTextDocument::modificationChanged, this, [this, editor](bool) {
-        int index = tabWidget->indexOf(editor);
-        if (index != -1) {
-            updateTabAppearance(index);
-        }
-    });
 
     int index = tabWidget->addTab(editor, QFileInfo(filePath).fileName());
     tabWidget->setCurrentIndex(index);
@@ -1739,6 +1744,13 @@ void VexWidget::saveFileAs() {
 }
 
 bool VexWidget::eventFilter(QObject *obj, QEvent *event) {
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent *ke = static_cast<QKeyEvent*>(event);
+        if (ke->key() == Qt::Key_Escape) {
+            m_mode.changeMODE();
+            return true;
+        }
+    }
     if (event->type() == QEvent::Close) {
         closeEvent(static_cast<QCloseEvent*>(event));
         return true;
@@ -1976,112 +1988,165 @@ void VexWidget::openTerminal() {
     m_mainWindow->statusBar()->showMessage("Failed to open terminal", 3000);
 #endif
 }
+
 void VexWidget::showAbout() {
     QDialog aboutDialog(this);
     aboutDialog.setWindowTitle("About Vex");
-    aboutDialog.setMinimumSize(500, 400);
+    aboutDialog.setMinimumSize(550, 400);
     aboutDialog.setWindowIcon(Settings::instance().resolveIcon("vex"));
 
-    QVBoxLayout *layout = new QVBoxLayout(&aboutDialog);
+    QVBoxLayout *mainLayout = new QVBoxLayout(&aboutDialog);
+    mainLayout->setContentsMargins(10, 10, 10, 10);
+
+    QHBoxLayout *contentLayout = new QHBoxLayout;
+
+    QWidget *infoWidget = new QWidget;
+    QVBoxLayout *infoLayout = new QVBoxLayout(infoWidget);
+    infoLayout->setAlignment(Qt::AlignCenter);
 
     QLabel *iconLabel = new QLabel;
-    QPixmap iconPixmap = windowIcon().pixmap(170, 170);
+    QPixmap iconPixmap = Settings::instance().resolveIcon("vex").pixmap(160, 160);
     iconLabel->setPixmap(iconPixmap);
     iconLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(iconLabel);
 
     QLabel *aboutLabel = new QLabel;
     aboutLabel->setTextFormat(Qt::RichText);
     aboutLabel->setWordWrap(true);
     aboutLabel->setAlignment(Qt::AlignCenter);
-    aboutLabel->setStyleSheet("border: none; background: #020a00ff; padding: 12px; font-size: 13px;");
     aboutLabel->setText(R"(
-<h2>Vex Editor v4.1</h2>
-<p><i>An extensive Qt text editor.</i></p>
+<h3>Vex Editor v4.<sub>3</sub></h3>
+<p><i>Cytoplasm (Revision)</i></p>
+<p>Extensive Text Editor.</p>
 )");
-    layout->addWidget(aboutLabel);
+
+    infoLayout->addWidget(iconLabel);
+    infoLayout->addWidget(aboutLabel);
+    infoLayout->addStretch();
 
     QTabWidget *tabs = new QTabWidget;
     tabs->setTabPosition(QTabWidget::North);
 
-    auto makeTab = [](const QString &html) {
+    auto makeScrollingTab = [](const QString &html) {
+        QScrollArea *scrollArea = new QScrollArea;
+        scrollArea->setWidgetResizable(true);
         QLabel *label = new QLabel;
         label->setTextFormat(Qt::RichText);
         label->setText(html);
         label->setOpenExternalLinks(true);
         label->setAlignment(Qt::AlignTop | Qt::AlignLeft);
         label->setWordWrap(true);
-        return label;
+        label->setContentsMargins(10, 10, 10, 10);
+        scrollArea->setWidget(label);
+        return scrollArea;
     };
 
     QMap<QString, QString> tabData = {
         { "About", R"(
-<h3>⠀⠀ Version</h3>
+<h3>Version</h3>
 <ul>
-<li><b>⠀⠀Version:</b> 4.2</li>
-<li><b>⠀⠀Status:</b> Cytoplasm (STABLE)</li>
-<li><b>⠀⠀Release Date:</b> March 2026</li>
-<li><b>⠀⠀Security Support Until:</b> 01/5/2027</li>
-<li><b>⠀⠀Warranty:</b> Report bugs for issues</li>
+<li><b>Version:</b> 4.3</li>
+<li><b>Status:</b> Cytoplasm (STABLE)</li>
+<li><b>Release Date:</b> March 2026</li>
+<li><b>Security Support Until:</b> 01/5/2027</li>
+<li><b>Warranty:</b> Report bugs for issues</li>
 </ul>
 )"},
         { "Vi", R"(
-<h3>⠀⠀ Vi Mode</h3>
+<h3>Vi Mode Keybindings</h3>
 <ul>
-<li><b>⠀⠀h / j / k / l</b> → Move cursor</li>
-<li><b>⠀⠀i / a</b> → Enter INSERT mode</li>
-<li><b>⠀⠀x</b> → Delete character</li>
-<li><b>⠀⠀o</b> → New line below</li>
-<li><b>⠀⠀w / b</b> → Word forward/back</li>
-<li><b>⠀⠀Shift + D</b> → Delete to end of line</li>
-<li><b>⠀⠀: then, wq [:wq]</b> → Save file</li>
+<li><b>h</b> → Move cursor left</li>
+<li><b>j</b> → Move cursor down</li>
+<li><b>k</b> → Move cursor up</li>
+<li><b>l</b> → Move cursor right</li>
+<li><b>i</b> → Enter INSERT mode (before cursor)</li>
+<li><b>a</b> → Enter INSERT mode (after cursor)</li>
+<li><b>x</b> → Delete character under cursor</li>
+<li><b>o</b> → New line below, enter INSERT mode</li>
+<li><b>w</b> → Move to next word</li>
+<li><b>b</b> → Move to previous word</li>
+<li><b>dd</b> → Delete current line</li>
+<li><b>D</b> → Delete to end of line (Shift+D)</li>
+<li><b>yy</b> → Yank (copy) current line</li>
+<li><b>:</b> → Enter COMMAND mode</li>
+<li><b>Ctrl+W</b> → Save file</li>
 </ul>
 )"},
-        { "Insert", R"(
-<h3>⠀⠀ Insert Mode</h3>
+        { "CMD", R"(
+<h3>Command Mode Commands</h3>
 <ul>
-<li><b>⠀⠀Ctrl + S</b> → Save file</li>
-<li><b>⠀⠀Ctrl + Z / Y</b> → Undo / Redo</li>
-<li><b>⠀⠀Home / End</b> → Line start/end</li>
+<li><b>:w</b> or <b>:write</b> → Save file</li>
+<li><b>:q</b> or <b>:quit</b> → Close tab</li>
+<li><b>:wq</b> → Save and close tab</li>
+<li><b>:q!</b> → Force close tab without saving</li>
+<li><b>Backspace</b> → Delete last character</li>
+<li><b>Enter</b> → Execute command</li>
 </ul>
 )"},
-        { "App Shortcuts", R"(
-<h3>⠀⠀App Shortcuts</h3>
+        { "INS", R"(
+<h3>Insert Mode Keybindings</h3>
 <ul>
-<li><b>  Esc → Change mode </li>
-<li><b>⠀⠀Ctrl + N / O / S</b> → New / Open / Save</li>
-<li><b>⠀⠀Ctrl + F</b> → Find & Replace</li>
-<li><b>⠀⠀F3 / Shift + F3</b> → Find next / previous</li>
-<li><b>⠀⠀Ctrl + Q</b> → Quit</li>
+<li><b>Ctrl+S</b> → Save file</li>
+<li><b>Ctrl+Z</b> → Undo</li>
+<li><b>Ctrl+Y</b> → Redo</li>
+<li><b>Ctrl+A</b> → Select all</li>
+<li><b>Ctrl+C</b> → Copy</li>
+<li><b>Ctrl+V</b> → Paste</li>
+<li><b>Ctrl+X</b> → Cut</li>
+<li><b>Ctrl+F</b> → Find and Replace</li>
+<li><b>Home/End</b> → Line start/end</li>
+<li><b>Ctrl+Home/End</b> → Document start/end</li>
+<li><b>Page Up/Down</b> → Scroll page</li>
 </ul>
 )"},
-        { "⠀⠀License", R"(
+        { "Global", R"(
+<h3>Application Shortcuts</h3>
+<ul>
+<li><b>Esc</b> → Cycle through mode (INS → VI → CMD → INS)</li>
+<li><b>Ctrl+N</b> → New file</li>
+<li><b>Ctrl+Shift+O</b> → Open file dialog</li>
+<li><b>Ctrl+O</b> → Open file by name</li>
+<li><b>Ctrl+S</b> → Save file</li>
+<li><b>Ctrl+Shift+S</b> → Save file as</li>
+<li><b>Ctrl+F</b> → Find and Replace</li>
+<li><b>F3</b> → Find next</li>
+<li><b>Shift+F3</b> → Find previous</li>
+<li><b>Ctrl+Shift+R</b> → Restart</li>
+<li><b>Ctrl+Q</b> → Quit</li>
+<li><b>Ctrl+Z</b> → Undo</li>
+<li><b>Ctrl+Y</b> → Redo</li>
+<li><b>Drag & Drop</b> → Open files</li>
+</ul>
+)"},
+        { "License", R"(
 <h3>License</h3>
 <hr>
-<p>⠀⠀Vex Editor is licensed under the <strong>Apache License 2.0</strong>.</p>
-<p>⠀⠀<a href='https://github.com/zynomon/vex/'>GitHub</a></p>
-<h3>⠀⠀Author</h3>
-<p><b>⠀⠀Zynomon aelius</b></p>
+<p>Vex Editor is licensed under the <strong>Apache License 2.0</strong>.</p>
+<p><a href='https://github.com/zynomon/vex/'>GitHub Repository</a></p>
+<h3>Author</h3>
+<p><b>Zynomon aelius</b> [zynomon@proton.me]</p>
+<h3>Copyright</h3>
+<p>Copyright Zynomon aelius 2026</p>
 )"}
     };
 
     for (auto it = tabData.constBegin(); it != tabData.constEnd(); ++it)
-        tabs->addTab(makeTab(it.value()), it.key());
+        tabs->addTab(makeScrollingTab(it.value()), it.key());
 
-    layout->addWidget(tabs);
+    contentLayout->addWidget(infoWidget);
+    contentLayout->addWidget(tabs, 1);
+
+    mainLayout->addLayout(contentLayout);
 
     QPushButton *okBtn = new QPushButton("Close");
-    okBtn->setFixedWidth(130);
     QObject::connect(okBtn, &QPushButton::clicked, &aboutDialog, &QDialog::accept);
 
     QHBoxLayout *btnLayout = new QHBoxLayout;
     btnLayout->addStretch();
     btnLayout->addWidget(okBtn);
-    layout->addLayout(btnLayout);
+    mainLayout->addLayout(btnLayout);
 
     aboutDialog.exec();
 }
-
 void VexWidget::dragEnterEvent(QDragEnterEvent *event) {
     if (event->mimeData()->hasUrls()) {
         event->acceptProposedAction();
@@ -2197,12 +2262,13 @@ void VexWidget::updateRecentMenu() {
 
     Settings &settings = Settings::instance();
     QStringList recentFiles = settings.get<QStringList>("recentFiles");
+    QFileIconProvider iconProvider;
 
     for (int i = 0; i < recentFiles.size() && i < MAX_RECENT_FILES; ++i) {
         QString filePath = recentFiles[i];
         QFileInfo info(filePath);
-        QString text = QString("%1. %2").arg(i + 1).arg(info.fileName());
-        QAction *action = recentMenu->addAction(text);
+        QString text = QString("%2").arg(info.fileName());
+        QAction *action = recentMenu->addAction(iconProvider.icon(info), text);
         action->setToolTip(filePath);
         connect(action, &QAction::triggered, this, [this, filePath]() {
             openFileAtPath(filePath);
@@ -2210,7 +2276,7 @@ void VexWidget::updateRecentMenu() {
     }
 
     if (recentFiles.isEmpty()) {
-        QAction *empty = recentMenu->addAction("No recent files");
+        QAction *empty = recentMenu->addAction(Settings::instance().resolveIcon("dialog-warning"), "No recent files");
         empty->setEnabled(false);
     }
 }
@@ -2235,13 +2301,156 @@ void VexWidget::updateTabAppearance(int tabIndex) {
     }
 
     bool isModified = editor->document()->isModified();
+
     if (isModified) {
-        tabWidget->setTabIcon(tabIndex, QIcon(fileIcon.pixmap(16, 16, QIcon::Disabled)));
+        QPixmap pixmap = fileIcon.pixmap(16, 16);
+        QPixmap rotated(16, 16);
+        rotated.fill(Qt::transparent);
+        QPainter painter(&rotated);
+        painter.setRenderHint(QPainter::SmoothPixmapTransform);
+        painter.translate(8, 8);
+        painter.rotate(-15);
+        painter.translate(-8, -8);
+        painter.drawPixmap(0, 0, pixmap);
+        painter.end();
+
+        QIcon tiltedIcon(rotated);
+        tabWidget->setTabIcon(tabIndex, tiltedIcon.pixmap(16, 16, QIcon::Disabled));
     } else {
         tabWidget->setTabIcon(tabIndex, fileIcon);
     }
 }
+void VexWidget::showTabContextMenu(const QPoint &pos)
+{
+    int tabIndex = tabWidget->tabBar()->tabAt(pos);
+    if (tabIndex == -1) return;
 
+    VexEditor *editor = qobject_cast<VexEditor*>(tabWidget->widget(tabIndex));
+    if (!editor) return;
+
+    QString filePath = filePaths.value(editor);
+    bool fileExistsOnDisk = !filePath.isEmpty() && QFileInfo::exists(filePath);
+
+    QMenu contextMenu(this);
+
+    if (fileExistsOnDisk && editor->document()->isModified()) {
+        QAction *saveAction = contextMenu.addAction(Settings::instance().resolveIcon("document-save"), "Save");
+        connect(saveAction, &QAction::triggered, this, [this]() {
+            saveFile();
+        });
+    }
+
+    QAction *saveAsAction = contextMenu.addAction(Settings::instance().resolveIcon("document-save-as"), "Save As...");
+    connect(saveAsAction, &QAction::triggered, this, [this]() {
+        saveFileAs();
+    });
+
+    contextMenu.addSeparator();
+
+    QAction *renameAction = contextMenu.addAction(Settings::instance().resolveIcon("edit-rename"), "Rename File");
+    connect(renameAction, &QAction::triggered, this, [this, tabIndex]() {
+        renameFile(tabIndex);
+    });
+
+    contextMenu.addSeparator();
+
+    if (fileExistsOnDisk) {
+        QAction *showAction = contextMenu.addAction(Settings::instance().resolveIcon("system-file-manager"), "Show in File Manager");
+        connect(showAction, &QAction::triggered, this, [this]() {
+            showInFileManager();
+        });
+
+        QAction *newWindowAction = contextMenu.addAction(Settings::instance().resolveIcon("window-new"), "Open in New Window");
+        connect(newWindowAction, &QAction::triggered, this, [this]() {
+            openFileInNewWindow();
+        });
+    }
+
+    contextMenu.addSeparator();
+
+    QAction *closeAction = contextMenu.addAction(Settings::instance().resolveIcon("window-close"), "Close Tab");
+    connect(closeAction, &QAction::triggered, this, [this, tabIndex]() {
+        closeTab(tabIndex);
+    });
+
+    contextMenu.exec(tabWidget->tabBar()->mapToGlobal(pos));
+}
+
+void VexWidget::renameFile(int index)
+{
+    VexEditor *editor = qobject_cast<VexEditor*>(tabWidget->widget(index));
+    if (!editor) return;
+
+    QString oldPath = filePaths.value(editor);
+    QFileInfo oldInfo(oldPath);
+
+    bool isNewFile = oldPath.isEmpty();
+    QString currentName = isNewFile ? tabWidget->tabText(index) : oldInfo.fileName();
+
+    if (currentName.endsWith(" *")) {
+        currentName.chop(2);
+    }
+
+    bool ok;
+    QString newName = QInputDialog::getText(this, "Rename File", "Enter new file name:", QLineEdit::Normal, currentName, &ok);
+
+    if (!ok || newName.isEmpty() || newName == currentName) return;
+
+    if (isNewFile) {
+        tabWidget->setTabText(index, newName);
+        filePaths[editor] = newName;
+        updateTabAppearance(index);
+        updateWindowTitle(m_mainWindow);
+        return;
+    }
+
+    QString newPath = oldInfo.absolutePath() + "/" + newName;
+    QFile file(oldPath);
+
+    if (file.rename(newPath)) {
+        fileWatcher->removePath(oldPath);
+        filePaths[editor] = newPath;
+        fileWatcher->addPath(newPath);
+        tabWidget->setTabText(index, QFileInfo(newPath).fileName());
+        updateTabAppearance(index);
+        updateWindowTitle(m_mainWindow);
+
+        Settings &settings = Settings::instance();
+        QStringList recentFiles = settings.get<QStringList>("recentFiles");
+        recentFiles.replaceInStrings(oldPath, newPath);
+        settings.setValue("recentFiles", recentFiles);
+        updateRecentMenu();
+
+        if (m_mainWindow) {
+            m_mainWindow->statusBar()->showMessage("File renamed to: " + newPath, 3000);
+        }
+    } else {
+        QMessageBox::warning(this, "Error", "Could not rename file:\n" + file.errorString());
+    }
+}
+
+void VexWidget::showInFileManager()
+{
+    VexEditor *editor = getCurrentEditor();
+    if (!editor) return;
+
+    QString path = filePaths.value(editor);
+    if (!path.isEmpty() && QFileInfo::exists(path)) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
+    }
+}
+
+void VexWidget::openFileInNewWindow()
+{
+    VexEditor *editor = getCurrentEditor();
+    if (!editor) return;
+
+    QString path = filePaths.value(editor);
+    if (!path.isEmpty() && QFileInfo::exists(path)) {
+        QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                                QStringList() << "-p" << "new" << "-f" << path);
+    }
+}
 bool VexWidget::hasBinaryContent(const QByteArray &data) const {
     if (data.isEmpty()) return false;
 
@@ -2300,7 +2509,7 @@ void VexWidget::onLineEndingChanged() {
         updateTabAppearance(tabWidget->currentIndex());
     }
 }
-class VexCorePlugin : public QObject, public CorePlugin {
+class EditorCorePlugin : public QObject, public CorePlugin {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "vex.core/4.0")
     Q_INTERFACES(CorePlugin)
@@ -2313,87 +2522,122 @@ public:
     }
 
     bool initialize(MainWindow* window, Settings* settings, CmdLine& cmdLine) override {
-        QMainWindow *mainWin = reinterpret_cast<QMainWindow*>(window);
-
+        Q_UNUSED(settings)
+        m_mainWin = reinterpret_cast<QMainWindow*>(window);
         cmdLine.addCommand({{"f", "file"}, "Open file(s) at startup", ""});
+        cmdLine.addCommand({{"p", "pid"}, "Send files to specific process ID, or 'new' for new window", "pid"});
+        return true;
+    }
 
-        QString tempDir = Settings::basePath() + "/.temp";
-        QDir().mkpath(tempDir);
+    void afterParse(CmdLine& cmdLine) override {
+        QStringList filesToOpen = cmdLine.flagArgs("f");
+        QString pidArg = cmdLine.flagArgs("p").value(0, "");
 
         qint64 currentPid = QCoreApplication::applicationPid();
-        QString requestFilePath = tempDir + "/" + QString::number(currentPid) + ".Req";
+        QString tempDir = Settings::basePath() + "/.temp";
+        QDir().mkpath(tempDir);
+        m_requestFilePath = tempDir + "/" + QString::number(currentPid) + ".Req";
 
-        QDir dir(tempDir);
-        QStringList reqFiles = dir.entryList(QStringList() << "*.Req", QDir::Files);
-        bool otherInstanceExists = false;
-        QString targetFile;
+        if (pidArg == "new") {
+            setupEditor();
+            openFiles(filesToOpen);
+            return;
+        }
 
-        for (const QString& file : std::as_const(reqFiles)) {
-            qint64 pid = file.section('.', 0, 0).toLongLong();
-            if (pid != currentPid && isProcessAlive(pid)) {
-                otherInstanceExists = true;
-                targetFile = tempDir + "/" + file;
-                break;
+        if (!pidArg.isEmpty()) {
+            bool ok;
+            qint64 targetPid = pidArg.toLongLong(&ok);
+
+            if (!ok || targetPid <= 0) {
+                setupEditor();
+                openFiles(filesToOpen);
+                return;
             }
-        }
 
-        if (otherInstanceExists) {
-            QTimer::singleShot(0, [&cmdLine, targetFile]() {
-                QStringList filesToOpen = cmdLine.flagArgs("f");
-                if (!filesToOpen.isEmpty()) {
-                    QFile requestFile(targetFile);
-                    if (requestFile.open(QIODevice::Append | QIODevice::Text)) {
-                        QTextStream out(&requestFile);
-                        out.setEncoding(QStringConverter::Utf8);
-                        for (const QString& path : std::as_const(filesToOpen)) {
-                            out << QDir::current().absoluteFilePath(path) << "\n";
-                        }
-                        requestFile.close();
-                    }
-                }
+            if (isProcessAlive(targetPid)) {
+                writeToRequestFile(targetPid, filesToOpen, tempDir);
                 qApp->quit();
-            });
-            return false;
+                return;
+            }
+
+            QFile::remove(tempDir + "/" + QString::number(targetPid) + ".Req");
+            setupEditor();
+            openFiles(filesToOpen);
+            m_deadPidMessage = "PID " + pidArg + " is dead. Opening files in current window.";
+            return;
         }
 
-        QFile requestFile(requestFilePath);
+        if (trySendToExistingInstance(filesToOpen, tempDir, currentPid)) {
+            qApp->quit();
+            return;
+        }
+
+        setupEditor();
+        openFiles(filesToOpen);
+    }
+
+private:
+    QMainWindow* m_mainWin = nullptr;
+    VexWidget* m_editor = nullptr;
+    QString m_requestFilePath;
+    QString m_deadPidMessage;
+
+    void setupEditor() {
+        QFile requestFile(m_requestFilePath);
         if (requestFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             requestFile.close();
         }
 
-        VexWidget *editor = new VexWidget(mainWin);
-        mainWin->installEventFilter(editor);
-        mainWin->setCentralWidget(editor);
-        editor->setupUI(mainWin);
-        editor->setupMenus(mainWin);
-        editor->setupToolbar(mainWin);
-        editor->loadSettings();
-        editor->setAcceptDrops(true);
+        m_editor = new VexWidget(m_mainWin);
+        m_mainWin->installEventFilter(m_editor);
+        m_mainWin->setCentralWidget(m_editor);
+        m_editor->setupUI(m_mainWin);
+        m_editor->setupMenus(m_mainWin);
+        m_editor->setupToolbar(m_mainWin);
+        m_editor->loadSettings();
+        m_editor->setAcceptDrops(true);
 
-        QFileSystemWatcher *watcher = new QFileSystemWatcher(editor);
-        watcher->addPath(requestFilePath);
-        QObject::connect(watcher, &QFileSystemWatcher::fileChanged, editor,
-                         [editor, requestFilePath]() {
-                             QTimer::singleShot(100, [editor, requestFilePath]() {
-                                 editor->handleInstanceRequest(requestFilePath);
-                             });
-                         });
+        QFileSystemWatcher *watcher = new QFileSystemWatcher(m_editor);
+        watcher->addPath(m_requestFilePath);
+        QObject::connect(watcher, &QFileSystemWatcher::fileChanged, m_editor,
+                         [this]() { m_editor->handleInstanceRequest(m_requestFilePath); });
 
-        QTimer::singleShot(0, [editor, &cmdLine]() {
-            QStringList files = cmdLine.flagArgs("f");
-            for (const QString& filePath : std::as_const(files)) {
-                editor->openFileAtPath(filePath);
-            }
+        connect(qApp, &QCoreApplication::aboutToQuit, [this]() {
+            QFile::remove(m_requestFilePath);
         });
 
-        connect(qApp, &QCoreApplication::aboutToQuit, [requestFilePath]() {
-            QFile::remove(requestFilePath);
-        });
-
-        return true;
+        if (!m_deadPidMessage.isEmpty()) {
+            m_mainWin->statusBar()->showMessage(m_deadPidMessage, 5000);
+            m_deadPidMessage.clear();
+        }
     }
 
-private:
+    void openFiles(const QStringList& files) {
+        for (const QString& filePath : files) {
+            m_editor->openFileAtPath(filePath);
+        }
+    }
+
+    bool trySendToExistingInstance(const QStringList& filesToOpen, const QString& tempDir, qint64 currentPid) {
+        if (filesToOpen.isEmpty()) return false;
+
+        QDir dir(tempDir);
+        const QStringList reqFiles = dir.entryList(QStringList() << "*.Req", QDir::Files);
+
+        for (const QString& file : reqFiles) {
+            qint64 pid = file.section('.', 0, 0).toLongLong();
+            if (pid == currentPid) continue;
+
+            if (!isProcessAlive(pid)) {
+                QFile::remove(tempDir + "/" + file);
+                continue;
+            }
+
+            writeToRequestFile(pid, filesToOpen, tempDir);
+            return true;
+        }
+        return false;
+    }
     bool isProcessAlive(qint64 pid) {
 #ifdef Q_OS_WIN
         QProcess p;
@@ -2408,5 +2652,21 @@ private:
         return p.exitCode() == 0;
 #endif
     }
+    void writeToRequestFile(qint64 targetPid, const QStringList& filesToOpen, const QString& tempDir) {
+        QString targetFile = tempDir + "/" + QString::number(targetPid) + ".Req";
+        QFile requestFile(targetFile);
+        if (requestFile.open(QIODevice::Append | QIODevice::Text)) {
+            QTextStream out(&requestFile);
+            out.setEncoding(QStringConverter::Utf8);
+            for (const QString& path : filesToOpen) {
+                out << QDir::current().absoluteFilePath(path) << "\n";
+            }
+            requestFile.close();
+        }
+    }
+
+
 };
-#include "VexCore.moc"
+
+
+#include "EditorCore.moc"
