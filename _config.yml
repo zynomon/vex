@@ -32,3 +32,16 @@ footer:
     - order: 2
       url: "https://codeberg.org/zynomon"
       text: "Codeberg"
+
+markdown: kramdown
+kramdown:
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    block:
+      line_numbers: true
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-remote-theme
+
+  
