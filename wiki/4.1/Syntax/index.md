@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Syntax"
+---
+
 <img src="https://github.com/user-attachments/assets/7b3c437f-a1c7-48a6-b346-bdfa970400e8" height="256" width="256" align="left">
 
 ***# Vex Syntax<sub>vxsyn</sub>***

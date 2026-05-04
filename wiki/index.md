@@ -1,3 +1,8 @@
+---
+layout: default
+title: "wiki"
+---
+
 # List of available documentations
 
 

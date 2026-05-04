@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Compile"
+---
+
 <img src="https://github.com/user-attachments/assets/ca3ca28e-9170-4cf5-8aca-106886905949" height="256" width="256" align="left">
  
 ***# Vex Compilation Guide***

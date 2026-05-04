@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Plugin"
+---
+
 <img src="https://github.com/KDE/oxygen-icons/raw/master/48x48/actions/run-build-file.png" height="256" width="256" align="left">
  
 ***# Vex Core Plugin API***

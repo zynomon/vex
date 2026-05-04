@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Install"
+---
+
 # Downloading Vex
  
 To download Vex, check the [latest release](https://github.com/zynomon/vex/releases/latest). Here's a quick reference chart for all versions:

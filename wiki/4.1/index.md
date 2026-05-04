@@ -1,3 +1,9 @@
+---
+layout: default
+title: "4.1"
+---
+
+
 # Welcome to Vex Wiki <img width="32" height="32" alt="text-frame-link" src="https://github.com/KDE/oxygen-icons/raw/master/48x48/actions/go-home.png" align=left/>
 Vex is a Qt‑based editor with a minimal core. The UI, syntax highlighting, and theming are all provided by plugins and external files.  
 That design keeps the binary small and lets you swap or extend features without touching the core.

@@ -1,3 +1,8 @@
+---
+layout: default
+title: "Known_issues"
+---
+
 # Current Version is 4.1
 Here are Some issues listed with their fixes
 
