@@ -1,13 +1,13 @@
 remote_theme: zynomon/wiker
 title: "Vex"
-thumb: "/thumb.png"
+thumbnail: "/thumb.png"
 url: "https://zynomon.github.io/vex"
 icon: "/vex.svg"
 accent: green
 
 header:
   logo: "/headerlogo.svg"
-  bg_wrapper: noise
+  bg-wrapper: noise
   bg: "https://gitlab.com/zynomon/svg-papers/-/raw/main/leaves/leaves.png"
   a:
     - order: 1

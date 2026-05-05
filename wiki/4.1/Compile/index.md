@@ -1,8 +1,7 @@
 ---
-title: "Compile"
 description: "How to compile Vex 4.1 from source on any supported platform"
-icon: "/wiki/4.1/headericon.svg"
-image: "/thumb.png"
+headericon: "/wiki/4.1/headericon.svg"
+
 
 layout: default
 title: "Compile"

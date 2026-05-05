@@ -1,8 +1,7 @@
 ---
 title: "Plugin API"
 description: "Core plugin API reference for Vex 4.1"
-icon: "/wiki/4.1/headericon.svg"
-image: "/thumb.png"
+headericon: "/wiki/4.1/headericon.svg"
 
 layout: default
 ---

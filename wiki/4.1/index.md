@@ -1,11 +1,9 @@
 ---
 title: "4.1"
 description: "Vex 4.1 Cytoplasm documentation"
-icon: "/wiki/4.1/headericon.svg"
-image: "/thumb.png"
+headericon: "/wiki/4.1/headericon.svg"
 
 layout: default
-title: "4.1"
 ---
 
 

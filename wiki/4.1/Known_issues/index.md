@@ -1,11 +1,9 @@
 ---
 title: "Known Issues"
 description: "Known issues and fixes for Vex 4.1 Cytoplasm"
-icon: "/wiki/4.1/headericon.svg"
-image: "/thumb.png"
+headericon: "/wiki/4.1/headericon.svg"
 
 layout: default
-title: "Known_issues"
 ---
 
 # Current Version is 4.1
