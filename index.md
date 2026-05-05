@@ -11,6 +11,6 @@ icon: "/vex.svg"
 image: "/thumb.png"
 ---
 
-# Vex ,
+# Vex , Wait for updates haha
 
 [wiki](./wiki)
