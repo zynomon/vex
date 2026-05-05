@@ -11,7 +11,7 @@ header:
   bg: "https://gitlab.com/zynomon/svg-papers/-/raw/main/leaves/leaves.png"
   a:
     - order: 1
-      url: "/download"
+      url: "/downloads"
       text: "Downloads"
       icon: "https://api.iconify.design/fluent-color:arrow-square-down-32.svg"
     - order: 2
