@@ -1,7 +1,6 @@
 ---
-layout: page
+layout: default
 title: Downloads
-permalink: /download/
 ---
 
 <style>
