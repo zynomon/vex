@@ -1,6 +1,10 @@
 ---
+title: "Plugin API"
+description: "Core plugin API reference for Vex 4.1"
+icon: "/wiki/4.1/headericon.svg"
+image: "/thumb.png"
+
 layout: default
-title: "Plugin"
 ---
 
 
@@ -2066,5 +2070,3 @@ endif()
 ---
 
 {% endraw %}
- 
- 

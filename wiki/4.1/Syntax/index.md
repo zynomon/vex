@@ -1,4 +1,9 @@
 ---
+title: "Syntax"
+description: "Vex syntax definition format (.vxsyn) reference for Vex 4.1"
+icon: "/wiki/4.1/headericon.svg"
+image: "/thumb.png"
+
 layout: default
 title: "Syntax"
 ---

@@ -1,4 +1,9 @@
 ---
+title: "Theming Guide"
+description: "Theming guide for Vex 4.1 using QSS and VEX#QSS extensions"
+icon: "/wiki/4.1/headericon.svg"
+image: "/thumb.png"
+
 layout: default
 title: "Theme"
 ---

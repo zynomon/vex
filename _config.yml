@@ -1,34 +1,39 @@
 remote_theme: zynomon/wiker
 title: "Vex"
-description: "Vex an extensive text editor"
-image: "https://repository-images.githubusercontent.com/1070654301/4644cccf-adea-4ea2-9155-9ae324e8cce5"
+image: "/thumb.png"
 url: "https://zynomon.github.io/vex"
+icon: "/vex.svg"
+accent: green
 
 header:
-  logo: "https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14"
+  logo: "/headerlogo.svg"
   bg: "https://gitlab.com/zynomon/svg-papers/-/raw/main/leaves/leaves.png"
   a:
     - order: 1
+      url: "/download"
+      text: "Downloads"
+      icon: "https://api.iconify.design/fluent-color:arrow-square-down-32.svg"
+    - order: 2
+      url: "/wiki"
+      text: "Wiki"
+      icon: "https://api.iconify.design/fluent-color:document-text-32.svg"
+    - order: 3
       url: "https://github.com/zynomon/vex"
       text: "GitHub"
-      icon: "https://cdn-icons-png.flaticon.com/512/25/25231.png"
-    - order: 2
+    - order: 4
       url: "https://gitlab.com/zynomon/vex"
       text: "GitLab"
-      icon: "https://cdn-icons-png.flaticon.com/512/5968/5968853.png"
-
 
 footer:
   logo:
-    link: "https://github.com/user-attachments/assets/3687d8ab-fc65-45a4-836d-4de590366d14"
+    link: "/headerlogo.svg"
     height: "32px"
     width: "auto"
-  notice-text: "Vex team.."
+  notice-text: "Vex team"
   a:
     - order: 1
       url: "https://github.com/zynomon"
       text: "GitHub"
-      icon: "https://cdn-icons-png.flaticon.com/512/25/25231.png"
     - order: 2
       url: "https://codeberg.org/zynomon"
       text: "Codeberg"
@@ -41,7 +46,4 @@ kramdown:
       line_numbers: false
 
 plugins:
-  - jekyll-seo-tag
   - jekyll-remote-theme
-
-  

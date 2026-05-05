@@ -1,4 +1,9 @@
 ---
+title: "Vex wiki"
+description: "Vex documentation index"
+icon: "/vex.svg"
+image: "/thumb.png"
+
 layout: default
 title: "wiki"
 ---

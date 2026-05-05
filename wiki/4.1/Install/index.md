@@ -1,4 +1,9 @@
 ---
+title: "Install"
+description: "How to download and install Vex 4.1 on Windows, Linux, and FreeBSD"
+icon: "/wiki/4.1/headericon.svg"
+image: "/thumb.png"
+
 layout: default
 title: "Install"
 ---
